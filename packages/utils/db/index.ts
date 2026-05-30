@@ -3,7 +3,7 @@ import { getCurrentUserId } from '../storage'
 import { getConfigId } from './configs'
 import { getPostId } from './tweets'
 
-export const DB_VERSION = 20
+export const DB_VERSION = 21
 
 export const DB_NAME = 'twillot'
 
@@ -14,6 +14,15 @@ export const CONFIGS_TABLE_NAME = 'configs'
 export const TWEETS_TABLE_NAME_V2 = 'posts'
 
 export const CONFIGS_TABLE_NAME_V2 = 'settings'
+
+export const USERS_TABLE_NAME = 'users'
+
+export const userIndexFields: IndexedDbIndexItem[] = [
+  { name: 'screen_name', options: { unique: false, multiEntry: false } },
+  { name: 'owner_id', options: { unique: false, multiEntry: false } },
+  { name: 'relationship', options: { unique: false, multiEntry: false } },
+  { name: 'synced_at', options: { unique: false, multiEntry: false } },
+]
 
 export const indexFields: IndexedDbIndexItem[] =
   'full_text,sort_index,screen_name,created_at,owner_id,has_image,has_video,has_link,has_quote,is_long_text,folder'
@@ -164,6 +173,7 @@ function upgradeDb(db: IDBDatabase, transaction: IDBTransaction) {
   createSchema(db, transaction, CONFIGS_TABLE_NAME, 'option_name', [])
   createSchema(db, transaction, TWEETS_TABLE_NAME_V2, 'id', indexFields)
   createSchema(db, transaction, CONFIGS_TABLE_NAME_V2, 'id', [])
+  createSchema(db, transaction, USERS_TABLE_NAME, 'id', userIndexFields)
 }
 
 export function getObjectStore(db: IDBDatabase, realTbName: string) {

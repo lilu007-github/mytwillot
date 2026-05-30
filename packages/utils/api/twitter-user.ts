@@ -209,3 +209,25 @@ export async function getFollowers(userId: string, cursor?: string) {
 
   return json as FollowersResponse
 }
+
+export async function getFollowing(userId: string, cursor?: string) {
+  const variables = {
+    cursor: '',
+    userId,
+    count: 100,
+    includePromotedContent: true,
+  }
+  if (cursor) {
+    variables.cursor = cursor
+  }
+  const query = flatten({
+    variables,
+    features: COMMON_FEATURES,
+  })
+  const json = await request(`${Endpoint.FOLLOWING}?${query}`, {
+    body: null,
+    method: 'GET',
+  })
+
+  return json as FollowersResponse
+}
