@@ -255,7 +255,14 @@ export async function* syncAllBookmarks(forceSync = false) {
 
       // 有可能被删除
       const docs = tweets
-        .map((i) => toRecord(i.content.itemContent, i.sortIndex))
+        .map((i) => {
+          try {
+            return toRecord(i.content.itemContent, i.sortIndex)
+          } catch (err) {
+            console.error('Failed to parse bookmark, skipping', err, i)
+            return null
+          }
+        })
         .filter((t) => t && del_ids.includes(t.tweet_id) === false)
       await upsertRecords(docs)
       yield docs
