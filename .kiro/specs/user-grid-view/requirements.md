@@ -10,7 +10,7 @@ The User Grid View feature provides a tabular/grid display of Twitter/X user dat
 - **Column_Configuration**: The user-facing settings panel that controls which columns are visible in the Grid_View
 - **Pagination_Control**: The UI component that allows navigation between pages of user data
 - **Sort_Indicator**: The visual element on a column header that shows the current sort direction (ascending or descending)
-- **StoredUser**: The IndexedDB record representing a synced Twitter/X user with fields such as name, screen_name, followers_count, friends_count, statuses_count, location, is_blue_verified, created_at, and description
+- **StoredUser**: The IndexedDB record representing a synced Twitter/X user with fields such as name, screen_name, followers_count, friends_count, statuses_count, is_blue_verified, created_at, and description
 - **Page_Size**: The number of user rows displayed per page in the Grid_View
 - **Column_Preference**: The persisted user setting that records which columns are shown or hidden
 
@@ -23,7 +23,7 @@ The User Grid View feature provides a tabular/grid display of Twitter/X user dat
 #### Acceptance Criteria
 
 1. WHEN the user navigates to the user grid page, THE Grid_View SHALL render a table with one row per StoredUser record matching the active relationship filter, displaying rows in the order returned by IndexedDB
-2. THE Grid_View SHALL display the following default columns in left-to-right order: avatar (rendered as the user's profile_image_url_https thumbnail), name, screen_name, followers_count, friends_count, statuses_count, is_blue_verified, location, description, and created_at
+2. THE Grid_View SHALL display the following default columns in left-to-right order: avatar (rendered as the user's profile_image_url_https thumbnail), name, screen_name, followers_count, friends_count, statuses_count, is_blue_verified, description, and created_at
 3. THE Grid_View SHALL NOT include a DM (direct message) column
 4. WHEN no StoredUser records exist for the active relationship filter, THE Grid_View SHALL display an empty state message indicating no users have been synced
 5. IF IndexedDB fails to return user data, THEN THE Grid_View SHALL display an error message indicating that user data could not be loaded and SHALL NOT render partial or stale rows
@@ -34,7 +34,7 @@ The User Grid View feature provides a tabular/grid display of Twitter/X user dat
 
 #### Acceptance Criteria
 
-1. THE Column_Configuration SHALL provide a toggle control for each column defined in the Grid_View default columns (avatar, name, screen_name, followers_count, friends_count, statuses_count, is_blue_verified, location, description, and created_at)
+1. THE Column_Configuration SHALL provide a toggle control for each column defined in the Grid_View default columns (avatar, name, screen_name, followers_count, friends_count, statuses_count, is_blue_verified, description, and created_at)
 2. WHEN the user toggles a column off, THE Grid_View SHALL hide that column immediately without a page reload
 3. WHEN the user toggles a column on, THE Grid_View SHALL show that column immediately without a page reload
 4. THE Column_Configuration SHALL persist the user's Column_Preference to Chrome storage so that preferences survive extension restarts
@@ -70,7 +70,7 @@ The User Grid View feature provides a tabular/grid display of Twitter/X user dat
 4. WHILE a sort is active, THE Sort_Indicator SHALL display an upward arrow for ascending or a downward arrow for descending on the active sort column
 5. WHEN sorting is removed, THE Sort_Indicator SHALL not be displayed on any column header
 6. WHEN sorting is applied, THE Pagination_Control SHALL reset to page one
-7. THE Grid_View SHALL support sorting on numeric columns (followers_count, friends_count, statuses_count), text columns (name, screen_name, location), and date columns (created_at), using case-insensitive comparison for text columns
+7. THE Grid_View SHALL support sorting on numeric columns (followers_count, friends_count, statuses_count), text columns (name, screen_name), and date columns (created_at), using case-insensitive comparison for text columns
 8. IF the user clicks a column header that is not sortable (avatar, is_blue_verified, description), THEN THE Grid_View SHALL not change the current sort state
 
 ### Requirement 5: Batch Selection and Bulk Actions

@@ -60,12 +60,6 @@ export const DEFAULT_COLUMNS: ColumnDef[] = [
     defaultVisible: true,
   },
   {
-    key: 'location',
-    label: 'Location',
-    sortable: true,
-    defaultVisible: true,
-  },
-  {
     key: 'description',
     label: 'Bio',
     sortable: false,

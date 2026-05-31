@@ -210,7 +210,6 @@ const DEFAULT_COLUMNS: ColumnDef[] = [
   { key: 'friends_count', label: 'Following', sortable: true, defaultVisible: true },
   { key: 'statuses_count', label: 'Posts', sortable: true, defaultVisible: true },
   { key: 'is_blue_verified', label: 'Verified', sortable: false, defaultVisible: true },
-  { key: 'location', label: 'Location', sortable: true, defaultVisible: true },
   { key: 'description', label: 'Bio', sortable: false, defaultVisible: true },
   { key: 'created_at', label: 'Joined', sortable: true, defaultVisible: true },
 ]
@@ -285,7 +284,6 @@ Stored under key `user_grid_column_visibility` as a JSON object:
   "friends_count": false,
   "statuses_count": true,
   "is_blue_verified": true,
-  "location": false,
   "description": true,
   "created_at": true
 }
