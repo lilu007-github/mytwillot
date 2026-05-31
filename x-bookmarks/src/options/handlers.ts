@@ -387,7 +387,6 @@ export function resetQuery() {
   setStore({
     keyword: '',
     category: '',
-    folder: '',
   })
 }
 

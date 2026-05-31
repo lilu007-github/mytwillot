@@ -6,6 +6,7 @@
 import { Media, TimelineTweet } from './tweet'
 import { TimelineTwitterList } from './list'
 import { TimelineUser } from './user'
+export * from './folder'
 export * from './list'
 export * from './tweet'
 export * from './user'

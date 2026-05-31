@@ -1,9 +1,10 @@
-import { createEffect, createSignal, For, onMount, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onMount, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
-import { A, useSearchParams } from '@solidjs/router'
+import { A, useLocation, useSearchParams } from '@solidjs/router'
 import debounce from 'lodash.debounce'
 
 import { createStyleSheet } from 'utils/dom'
+import { type EntityScope } from 'utils/types'
 import dataStore from './store'
 import Indicator from '../components/Indicator'
 import Authenticate from './Authenticate'
@@ -14,34 +15,77 @@ import {
   queryByCondition,
   resetQuery,
   syncThreads,
-  smartTagging,
 } from './handlers'
 import { Alert } from '../components/Alert'
 import Notification from '../components/Notification'
 import {
   IconBookmark,
-  IconFolderMove,
-  IconFolders,
   IconMessage,
   IconMoon,
-  IconSparkles,
   IconSun,
   IconUp,
 } from '../components/Icons'
 import ZenMode from '../components/ZenMode'
 import logo from '../../public/img/logo-128.png'
 import { allCategories } from '../constants'
-import { initFolders } from '../stores/folders'
-import AsideFolder from '../components/AsideFolder'
+import { folderState, initFolders, setActiveScope, setActiveFolder } from '../stores/folders'
+import FolderPanel from '../components/FolderPanel'
 import { getCurrentUserId, onLocalChanged, StorageKeys } from 'utils/storage'
 import { getLicense, isViolatedLicense, LICENSE_KEY } from 'utils/license'
-import Spinner from '~/components/Spinner'
+
+/**
+ * Determine the entity scope from the current route pathname.
+ * Returns null for pages with no entity scope (e.g., /license, /export).
+ */
+function getScopeFromPath(pathname: string): EntityScope | null {
+  if (pathname === '/' || pathname === '/bookmarks') return 'bookmark'
+  if (pathname === '/users') return 'user'
+  return null
+}
 
 export const Layout = (props) => {
   const [store, setStore] = dataStore
   const [searchParams] = useSearchParams()
+  const location = useLocation()
   const [bookmarksOpen, setBookmarksOpen] = createSignal(true)
   const [foldersOpen, setFoldersOpen] = createSignal(true)
+
+  const activeScope = createMemo(() => getScopeFromPath(location.pathname))
+
+  const unsortedCount = createMemo(() => {
+    const scope = activeScope()
+    if (scope === 'bookmark' && store.totalCount) {
+      return store.totalCount.unsorted
+    }
+    // For users, unsorted count is not readily available in the store
+    // Return 0 as a fallback until a dedicated count is wired
+    return 0
+  })
+
+  // Watch route changes and update folder scope + clear filter
+  createEffect(() => {
+    const scope = activeScope()
+    if (scope) {
+      setActiveScope(scope)
+    }
+    // Clear active folder filter on navigation
+    setActiveFolder(null)
+  })
+
+  // Sync folderState.activeFolder → store.folder for bookmark grid query
+  // When activeFolder changes, update the main store's folder field
+  // which triggers queryByCondition reactively and resets pagination
+  createEffect(() => {
+    const active = folderState.activeFolder
+    const scope = activeScope()
+    if (scope === 'bookmark') {
+      // Map activeFolder to the store.folder value:
+      // null → '' (show all), 'Unsorted' → 'Unsorted', folder name → folder name
+      setStore('folder', active ?? '')
+      // Reset tweets to clear cursor-based pagination (re-query from start)
+      setStore('tweets', [])
+    }
+  })
 
   createEffect(() => {
     if (searchParams.q) {
@@ -99,7 +143,7 @@ export const Layout = (props) => {
     /**
      * 优先获取全部书签和文件夹同步，threads 优先级可以降低
      */
-    await Promise.all([initSync(), initFolders()])
+    await Promise.all([initSync(), initFolders('bookmark')])
     await syncThreads()
   })
 
@@ -156,8 +200,8 @@ export const Layout = (props) => {
         <aside
           class={`fixed left-0 top-0 z-40 hidden h-screen w-64 -translate-x-full border-r border-gray-200 bg-white pt-20 text-lg text-gray-700 transition-transform sm:translate-x-0 lg:block dark:border-gray-700 dark:bg-[#121212] dark:text-white ${store.selectedTweet > -1 ? 'hidden' : ''}`}
         >
-          <div class="h-full overflow-y-auto px-3 pb-4 ">
-            <ul class="space-y-1 font-medium">
+          <div class="flex h-full flex-col overflow-y-auto px-3 pb-4">
+            <ul class="flex-1 space-y-1 font-medium">
               <li>
                 <A
                   href="/"
@@ -221,66 +265,6 @@ export const Layout = (props) => {
                 </Show>
               </li>
               <li>
-                <button
-                  class="flex w-full items-center rounded-lg p-2 transition duration-75 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  onClick={() => setFoldersOpen(!foldersOpen())}
-                >
-                  <IconFolders />
-                  <span class="ms-3 flex-1 whitespace-nowrap text-left">Folders</span>
-                  <span
-                    class="ms-1 inline-flex cursor-pointer items-center justify-center rounded-full text-xs opacity-60"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      smartTagging()
-                    }}
-                  >
-                    <Show
-                      when={store.isTagging}
-                      fallback={
-                        <span class="animate-spin">
-                          <IconSparkles />
-                        </span>
-                      }
-                    >
-                      <Spinner className="h-4 w-4 fill-gray-700 text-gray-200 dark:text-gray-600" />
-                    </Show>
-                  </span>
-                  <svg
-                    class={`ms-2 h-4 w-4 shrink-0 transition-transform duration-200 ${foldersOpen() ? 'rotate-180' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-                <Show when={foldersOpen()}>
-                  <Show when={store.totalCount}>
-                    <div class="text-base">
-                      <A
-                        href="/"
-                        class={`${'Unsorted' === store.folder ? 'text-blue-500 ' : ''} flex w-full items-center rounded-lg p-1 pl-11 transition duration-75`}
-                        onClick={() => setStore('folder', 'Unsorted')}
-                      >
-                        Unsorted
-                        <div class="ml-4 hidden flex-1 items-center justify-end gap-2">
-                          <Show when={store.keyword}>
-                            <span class="cursor-pointer">
-                              <IconFolderMove />
-                            </span>
-                          </Show>
-                        </div>
-                        <span class="mr-1 flex-1 items-center text-right text-xs font-medium opacity-60">
-                          {store.totalCount.unsorted}
-                        </span>
-                      </A>
-                    </div>
-                  </Show>
-                  <AsideFolder />
-                </Show>
-              </li>
-              <li>
                 <A
                   class="flex items-center rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                   href="/users"
@@ -292,6 +276,18 @@ export const Layout = (props) => {
                 </A>
               </li>
             </ul>
+
+            {/* Folder Panel - sticky at bottom, hidden on non-entity pages */}
+            <Show when={activeScope()}>
+              <div class="sticky bottom-0 border-t border-gray-200 bg-white pt-2 dark:border-gray-700 dark:bg-[#121212]">
+                <FolderPanel
+                  scope={activeScope()!}
+                  unsortedCount={unsortedCount()}
+                  isOpen={foldersOpen()}
+                  onToggle={() => setFoldersOpen(!foldersOpen())}
+                />
+              </div>
+            </Show>
           </div>
         </aside>
       </Show>
