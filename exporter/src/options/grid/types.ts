@@ -56,7 +56,7 @@ export const DEFAULT_COLUMNS: ColumnDef[] = [
   {
     key: 'is_blue_verified',
     label: 'Verified',
-    sortable: false,
+    sortable: true,
     defaultVisible: true,
   },
   {

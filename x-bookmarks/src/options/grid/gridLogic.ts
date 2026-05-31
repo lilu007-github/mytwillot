@@ -37,6 +37,7 @@ export function sortUsers(
   const numericColumns = ['followers_count', 'friends_count', 'statuses_count']
   const textColumns = ['name', 'screen_name', 'location']
   const dateColumns = ['created_at']
+  const booleanColumns = ['is_blue_verified']
 
   const sorted = [...users].sort((a, b) => {
     const aVal = (a as unknown as Record<string, unknown>)[column]
@@ -54,6 +55,10 @@ export function sortUsers(
       cmp =
         new Date(aVal as string).getTime() -
         new Date(bVal as string).getTime()
+    } else if (booleanColumns.includes(column)) {
+      const aBool = aVal === true ? 1 : 0
+      const bBool = bVal === true ? 1 : 0
+      cmp = aBool - bBool
     }
 
     return direction === 'desc' ? -cmp : cmp
