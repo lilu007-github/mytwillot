@@ -189,7 +189,7 @@ export default function UserGridPage() {
   }
 
   return (
-    <div class="mx-auto my-4 w-full flex-1 px-3 text-base text-gray-700 lg:w-[64rem] lg:px-0 dark:text-white">
+    <div class="mx-auto my-4 w-full flex-1 px-3 text-base text-gray-700 dark:text-white">
       <div class="mb-6 flex items-center justify-between">
         <h2 class="text-xl font-bold">Users</h2>
         <div class="flex items-center gap-3">
