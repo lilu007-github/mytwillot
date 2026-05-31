@@ -47,9 +47,14 @@ export async function request(url: string, options: RequestInit) {
       throw error
     }
 
+    const authHeaders = get_headers(headers)
+    // Preserve caller-specified Content-Type (e.g. for form-urlencoded v1.1 endpoints)
+    if (options.headers?.['Content-Type']) {
+      delete authHeaders['Content-Type']
+    }
     options.headers = {
       ...options.headers,
-      ...get_headers(headers),
+      ...authHeaders,
     }
   }
   if (options.body instanceof FormData) {

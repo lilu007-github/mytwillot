@@ -16,6 +16,7 @@ import {
 } from '../types'
 import { URL_REG } from '../text'
 import { FetchError } from '../xfetch'
+import { getCapturedQueryId } from '../storage'
 import { flatten, request } from './twitter-base'
 import {
   BOOKMARK_FEATURES,
@@ -525,12 +526,15 @@ export async function repostTweet(tweetId: string) {
 }
 
 export async function unfollowUser(userId: string) {
-  return request(Endpoint.UNFOLLOW, {
-    body: JSON.stringify({
-      variables: {
-        target_user_id: userId,
-      },
-      queryId: EndpointQuery.UNFOLLOW,
-    }),
+  /**
+   * Twitter removed the UnfollowUser GraphQL mutation. The web app now uses
+   * the v1.1 REST endpoint for unfollowing.
+   */
+  return request('https://x.com/i/api/1.1/friendships/destroy.json', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: `user_id=${userId}`,
   })
 }
