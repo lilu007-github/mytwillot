@@ -11,13 +11,23 @@ import { FetchError } from 'utils/xfetch'
 import { getRateLimitInfo } from 'utils/api/twitter-base'
 import { getPostId } from 'utils/db/tweets'
 import { Endpoint, TimelineTweet, TimelineUser, Tweet, User } from 'utils/types'
-import { createSchema, getObjectStore, indexFields, openDb } from 'utils/db'
+import {
+  createSchema,
+  getObjectStore,
+  indexFields,
+  openDb,
+  DB_NAME,
+  DB_VERSION,
+  USERS_TABLE_NAME,
+  userIndexFields,
+} from 'utils/db'
+import { StoredUser, getUserId, upsertUsers } from 'utils/db/users'
 
 import { mutateStore, TaskState } from './store'
 import { Category, Handler } from './types'
 
-const dbName = 'twillot'
-const dbVersion = 2
+const dbName = DB_NAME
+const dbVersion = DB_VERSION
 const tableName = 'posts'
 
 export async function initDb() {
@@ -37,6 +47,7 @@ export async function initDb() {
         },
       ]),
     )
+    createSchema(db, transaction, USERS_TABLE_NAME, 'id', userIndexFields)
   })
 }
 
@@ -164,6 +175,50 @@ export function getCategoryDetails(
   }
 }
 
+/**
+ * Convert follower docs (from the posts table format) into StoredUser records
+ * and upsert them into the users table so the UserGridPage can read them.
+ */
+async function upsertFollowerUsers(docs: any[], uid: string) {
+  const storedUsers: StoredUser[] = docs
+    .map((doc) => {
+      const legacy = doc.legacy
+      if (!legacy) return null
+
+      /**
+       * X moved name / screen_name / created_at out of `legacy` into a new
+       * `core` object, and the avatar into `avatar.image_url`. Read core first
+       * and fall back to legacy so both old and new response shapes work.
+       */
+      const core = doc.core || {}
+      const user: StoredUser = {
+        id: getUserId(uid, 'follower', doc.rest_id),
+        rest_id: doc.rest_id,
+        owner_id: uid,
+        relationship: 'follower',
+        name: core.name ?? legacy.name ?? '',
+        screen_name: core.screen_name ?? legacy.screen_name ?? '',
+        profile_image_url_https:
+          doc.avatar?.image_url ?? legacy.profile_image_url_https ?? '',
+        profile_banner_url: legacy.profile_banner_url,
+        description: legacy.description || '',
+        followers_count: legacy.followers_count,
+        friends_count: legacy.friends_count,
+        statuses_count: legacy.statuses_count,
+        is_blue_verified: doc.is_blue_verified || false,
+        location: legacy.location || '',
+        created_at: core.created_at ?? legacy.created_at ?? '',
+        synced_at: Math.floor(Date.now() / 1000),
+      }
+      return user
+    })
+    .filter((u): u is StoredUser => u !== null)
+
+  if (storedUsers.length > 0) {
+    await upsertUsers(storedUsers)
+  }
+}
+
 // 新增函数：检查文档是否存在
 async function checkDocsExist(ids: string[]): Promise<string[]> {
   const db = await openDb(dbName, dbVersion)
@@ -245,6 +300,9 @@ export async function startSyncRecent(
       }
 
       await upsertDocs(docs)
+      if (category === 'followers') {
+        await upsertFollowerUsers(docs, uid)
+      }
       mutateStore((state) => {
         state[category].state = TaskState.started
       })
@@ -318,6 +376,9 @@ export async function startSyncAll(
 
     try {
       await upsertDocs(docs)
+      if (category === 'followers') {
+        await upsertFollowerUsers(docs, uid)
+      }
     } catch (err) {
       console.error(err)
       break

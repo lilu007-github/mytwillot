@@ -65,24 +65,33 @@ export async function syncUsers(
         .map((item) => {
           try {
             const user = item.user_results?.result
-            if (!user?.legacy) return null
+            const legacy = user?.legacy
+            if (!legacy) return null
 
+            /**
+             * X moved name / screen_name / created_at out of `legacy` into a
+             * new `core` object, and the avatar into `avatar.image_url`.
+             * Older responses still use `legacy`, so read core first and fall
+             * back to legacy to support both shapes.
+             */
+            const core = user.core || {}
             return {
               id: getUserId(uid, relationship, user.rest_id),
               rest_id: user.rest_id,
               owner_id: uid,
               relationship,
-              name: user.legacy.name,
-              screen_name: user.legacy.screen_name,
-              profile_image_url_https: user.legacy.profile_image_url_https,
-              profile_banner_url: user.legacy.profile_banner_url,
-              description: user.legacy.description || '',
-              followers_count: user.legacy.followers_count,
-              friends_count: user.legacy.friends_count,
-              statuses_count: user.legacy.statuses_count,
+              name: core.name ?? legacy.name ?? '',
+              screen_name: core.screen_name ?? legacy.screen_name ?? '',
+              profile_image_url_https:
+                user.avatar?.image_url ?? legacy.profile_image_url_https ?? '',
+              profile_banner_url: legacy.profile_banner_url,
+              description: legacy.description || '',
+              followers_count: legacy.followers_count,
+              friends_count: legacy.friends_count,
+              statuses_count: legacy.statuses_count,
               is_blue_verified: user.is_blue_verified || false,
-              location: user.legacy.location || '',
-              created_at: user.legacy.created_at,
+              location: legacy.location || '',
+              created_at: core.created_at ?? legacy.created_at ?? '',
               synced_at: Math.floor(Date.now() / 1000),
             } as StoredUser
           } catch (err) {
@@ -115,6 +124,16 @@ export async function syncUsers(
       console.log('Rate limited, stopping sync')
     } else if (err.name === FetchError.IdentityError) {
       alert('Authentication expired. Please re-authenticate.')
+    } else if (err.name === FetchError.EndpointError) {
+      if (relationship === 'followers') {
+        alert(
+          'Syncing followers requires an X Premium account. The Following tab works without premium.',
+        )
+      } else {
+        alert(
+          'This endpoint is currently unavailable. Please try again later.',
+        )
+      }
     } else {
       console.error('Sync error:', err)
     }

@@ -1,6 +1,21 @@
-import { Endpoint, TimelineInstructions } from '../types'
+import { Endpoint, TimelineInstructions, getEndpoint } from '../types'
 import { flatten, request } from './twitter-base'
-import { COMMON_FEATURES } from './twitter-features'
+import { COMMON_FEATURES, FOLLOWERS_FEATURES } from './twitter-features'
+import { getCapturedQueryId } from '../storage'
+
+/**
+ * Resolve the endpoint URL for a GraphQL operation, preferring the query id
+ * captured live from x.com (Twitter rotates these ids, breaking hardcoded
+ * values). Falls back to the hardcoded `Endpoint` value when nothing has been
+ * captured yet.
+ */
+async function resolveEndpoint(
+  operationName: string,
+  fallback: Endpoint,
+): Promise<string> {
+  const captured = await getCapturedQueryId(operationName)
+  return captured ? getEndpoint(captured, operationName) : fallback
+}
 
 export interface UserDataResponse {
   data: {
@@ -200,9 +215,10 @@ export async function getFollowers(userId: string, cursor?: string) {
   }
   const query = flatten({
     variables,
-    features: COMMON_FEATURES,
+    features: FOLLOWERS_FEATURES,
   })
-  const json = await request(`${Endpoint.FOLLOWERS}?${query}`, {
+  const endpoint = await resolveEndpoint('Followers', Endpoint.FOLLOWERS)
+  const json = await request(`${endpoint}?${query}`, {
     body: null,
     method: 'GET',
   })
@@ -222,9 +238,10 @@ export async function getFollowing(userId: string, cursor?: string) {
   }
   const query = flatten({
     variables,
-    features: COMMON_FEATURES,
+    features: FOLLOWERS_FEATURES,
   })
-  const json = await request(`${Endpoint.FOLLOWING}?${query}`, {
+  const endpoint = await resolveEndpoint('Following', Endpoint.FOLLOWING)
+  const json = await request(`${endpoint}?${query}`, {
     body: null,
     method: 'GET',
   })

@@ -5,6 +5,8 @@ export enum FetchError {
   // 通用错误
   NetworkError = 'NetworkError',
   RateLimitError = 'RateLimitError',
+  // The persisted GraphQL query id is stale/unknown (Twitter rotated it)
+  EndpointError = 'EndpointError',
 }
 
 export default async function fetchWithTimeout(

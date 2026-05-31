@@ -88,6 +88,17 @@ export async function request(url: string, options: RequestInit) {
     throw error
   }
 
+  // 404 means the persisted GraphQL query id is stale (Twitter rotated it).
+  // The body is empty, so attempting res.json() would throw a confusing
+  // "Unexpected end of JSON input". Surface a clear, actionable error instead.
+  if (res.status === 404) {
+    const error = new Error(
+      'This endpoint is unavailable. It may require X Premium, or the API has changed. Please try again later.',
+    )
+    error.name = FetchError.EndpointError
+    throw error
+  }
+
   // No Content
   if (res.status === 204) {
     return

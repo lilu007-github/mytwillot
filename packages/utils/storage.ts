@@ -8,6 +8,55 @@ export enum StorageKeys {
   Tasks = 'tasks',
   Uuid = 'uuid',
   Transaction_Id = 'transaction_id',
+  /**
+   * Map of GraphQL operation name -> persisted query id, captured live from
+   * x.com's own requests. Twitter rotates these ids, so the hardcoded values
+   * in `Endpoint` go stale and start returning 404. Capturing the ids that the
+   * user's own session uses keeps requests working across rotations.
+   * Stored globally (not per-user) since the ids are account-independent.
+   */
+  Query_Ids = 'graphql_query_ids',
+}
+
+/**
+ * Parse `https://x.com/i/api/graphql/{queryId}/{OperationName}?...` and persist
+ * the queryId for that operation. Called from the background webRequest
+ * listener for every GraphQL request x.com makes.
+ */
+export async function captureQueryIdFromUrl(url: string) {
+  const match = url.match(/\/i\/api\/graphql\/([^/]+)\/([^/?]+)/)
+  if (!match) {
+    return
+  }
+
+  const [, queryId, operationName] = match
+  if (!queryId || !operationName) {
+    return
+  }
+
+  const store = await chrome.storage.local.get(StorageKeys.Query_Ids)
+  const map: Record<string, string> = store[StorageKeys.Query_Ids] || {}
+  if (map[operationName] === queryId) {
+    return
+  }
+
+  map[operationName] = queryId
+  await chrome.storage.local.set({ [StorageKeys.Query_Ids]: map })
+}
+
+/**
+ * Return the live captured query id for an operation, or undefined if x.com
+ * hasn't made that request yet during this session.
+ */
+export async function getCapturedQueryId(
+  operationName: string,
+): Promise<string | undefined> {
+  if (!chrome.storage) {
+    return undefined
+  }
+  const store = await chrome.storage.local.get(StorageKeys.Query_Ids)
+  const map: Record<string, string> = store[StorageKeys.Query_Ids] || {}
+  return map[operationName]
 }
 
 export async function getCurrentUserId(): Promise<string> {

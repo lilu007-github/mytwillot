@@ -1,4 +1,4 @@
-import { syncAuthHeaders } from 'utils/storage'
+import { captureQueryIdFromUrl, syncAuthHeaders } from 'utils/storage'
 import { Host } from 'utils/types'
 
 chrome.action.onClicked.addListener(function () {
@@ -12,6 +12,12 @@ chrome.webRequest.onSendHeaders.addListener(
     if (initiator !== Host) {
       return
     }
+
+    /**
+     * Capture the live persisted-query id for every GraphQL operation x.com
+     * calls. Twitter rotates these ids, so hardcoded values eventually 404.
+     */
+    await captureQueryIdFromUrl(url)
 
     await syncAuthHeaders(details.requestHeaders)
   },

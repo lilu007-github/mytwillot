@@ -17,6 +17,20 @@ export interface User {
   has_graduated_access: boolean;
   is_blue_verified: boolean;
   profile_image_shape: 'Square' | 'Circle';
+  /**
+   * X moved name / screen_name / created_at out of `legacy` into this `core`
+   * object. Older responses may omit it, so consumers should fall back to
+   * `legacy`.
+   */
+  core?: {
+    created_at?: string;
+    name?: string;
+    screen_name?: string;
+  };
+  /** Avatar URL moved here from `legacy.profile_image_url_https`. */
+  avatar?: {
+    image_url?: string;
+  };
   legacy: {
     followed_by: boolean;
     following: boolean;
