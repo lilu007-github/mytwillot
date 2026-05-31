@@ -19,6 +19,7 @@ export interface StoredUser {
   location: string
   created_at: string
   synced_at: number
+  folder?: string
 }
 
 export function getUserId(
@@ -66,6 +67,42 @@ export async function countUsers(
       }
     }
     request.onerror = () => reject(new Error('Failed to count users'))
+  })
+}
+
+export async function updateUserFolder(
+  ids: string[],
+  folder: string,
+): Promise<{ succeeded: string[]; failed: string[] }> {
+  const db = await openDb(DB_NAME, DB_VERSION)
+  const { objectStore, transaction } = getObjectStore(db, USERS_TABLE_NAME)
+
+  return new Promise((resolve, reject) => {
+    const succeeded: string[] = []
+    const failed: string[] = []
+    let processed = 0
+
+    transaction.oncomplete = () => resolve({ succeeded, failed })
+    transaction.onerror = () => reject(new Error('Failed to update user folders'))
+
+    ids.forEach((id) => {
+      const request = objectStore.get(id)
+      request.onsuccess = () => {
+        const record = request.result
+        if (record) {
+          record.folder = folder
+          objectStore.put(record)
+          succeeded.push(id)
+        } else {
+          failed.push(id)
+        }
+        processed++
+      }
+      request.onerror = () => {
+        failed.push(id)
+        processed++
+      }
+    })
   })
 }
 

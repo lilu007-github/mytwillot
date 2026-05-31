@@ -523,3 +523,14 @@ export async function repostTweet(tweetId: string) {
     }),
   })
 }
+
+export async function unfollowUser(userId: string) {
+  return request(Endpoint.UNFOLLOW, {
+    body: JSON.stringify({
+      variables: {
+        target_user_id: userId,
+      },
+      queryId: EndpointQuery.UNFOLLOW,
+    }),
+  })
+}

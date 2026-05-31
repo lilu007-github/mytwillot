@@ -313,6 +313,7 @@ export enum EndpointQuery {
   LIKES = 'Ov0pT_9__tQmK-XIzOf7pQ',
   FOLLOWERS_VERIFIED = 'hf2B_p-eEZQOrNF1brf50Q',
   LIKE_TWEET = 'lI07N6Otwv1PhnEgXILM7A',
+  UNFOLLOW = 'QY4RQp8Vk9SSbgMz1L6lRQ',
 }
 
 export enum Endpoint {
@@ -339,6 +340,7 @@ export enum Endpoint {
   FOLLOWERS_VERIFIED = `${BASE_PATH}${EndpointQuery.FOLLOWERS_VERIFIED}/BlueVerifiedFollowers`,
   LIKE_TWEET = `${BASE_PATH}${EndpointQuery.LIKE_TWEET}/FavoriteTweet
 `,
+  UNFOLLOW = `${BASE_PATH}${EndpointQuery.UNFOLLOW}/UnfollowUser`,
 }
 
 export function getEndpoint(queryId: string, name: string): string {
