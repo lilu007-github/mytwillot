@@ -1,6 +1,11 @@
-import { createSignal, For, onMount, Show } from 'solid-js'
+import { createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 
-import { getAccountRegistry, getActiveAccountId, type AccountEntry } from 'utils/account-manager'
+import {
+  getAccountRegistry,
+  getActiveAccountId,
+  upsertAccountEntry,
+  type AccountEntry,
+} from 'utils/account-manager'
 import { canDelete, deleteAccountData, type AccountCleanupResult } from 'utils/account-cleanup'
 import Modal from './Modal'
 
@@ -16,12 +21,37 @@ export default function AccountManagement() {
       getAccountRegistry(),
       getActiveAccountId(),
     ])
-    setAccounts(registry)
+
+    // Bootstrap: if the user is logged in but the registry is empty,
+    // create a minimal entry so the page isn't blank.
+    if (currentId && registry.length === 0) {
+      await upsertAccountEntry({
+        user_id: currentId,
+        last_active_at: Math.floor(Date.now() / 1000),
+      })
+      const refreshed = await getAccountRegistry()
+      setAccounts(refreshed)
+    } else {
+      setAccounts(registry)
+    }
+
     setActiveId(currentId)
+  }
+
+  // Reload when the registry or active account changes in storage
+  function onStorageChanged(changes: Record<string, chrome.storage.StorageChange>) {
+    if ('account_registry' in changes || 'current_user_id' in changes) {
+      loadAccounts()
+    }
   }
 
   onMount(() => {
     loadAccounts()
+    chrome.storage.local.onChanged.addListener(onStorageChanged)
+  })
+
+  onCleanup(() => {
+    chrome.storage.local.onChanged.removeListener(onStorageChanged)
   })
 
   function handleDeleteClick(account: AccountEntry) {

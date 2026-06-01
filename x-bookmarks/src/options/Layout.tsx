@@ -33,7 +33,7 @@ import { folderState, initFolders, setActiveScope, setActiveFolder } from '../st
 import FolderPanel from '../components/FolderPanel'
 import { getCurrentUserId, getStorageKey, onLocalChanged, StorageKeys } from 'utils/storage'
 import { getLicense, isViolatedLicense, LICENSE_KEY } from 'utils/license'
-import { getAccountRegistry, type AccountEntry } from 'utils/account-manager'
+import { getAccountRegistry, upsertAccountEntry, type AccountEntry } from 'utils/account-manager'
 import { getSyncState, type SyncState } from 'utils/sync-engine'
 
 /**
@@ -66,7 +66,18 @@ export const Layout = (props) => {
     setActiveUserId(userId)
 
     if (userId) {
-      const registry = await getAccountRegistry()
+      let registry = await getAccountRegistry()
+
+      // Bootstrap: if the user is logged in but has no registry entry yet,
+      // create a minimal one so the indicator isn't blank.
+      if (!registry.find((e) => e.user_id === userId)) {
+        await upsertAccountEntry({
+          user_id: userId,
+          last_active_at: Math.floor(Date.now() / 1000),
+        })
+        registry = await getAccountRegistry()
+      }
+
       const entry = registry.find((e) => e.user_id === userId)
       if (entry) {
         setActiveScreenName(entry.screen_name)
