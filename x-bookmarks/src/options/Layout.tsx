@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, onMount, Show } from 'solid-js'
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from 'solid-js'
 import { Portal } from 'solid-js/web'
 import { A, useLocation, useSearchParams } from '@solidjs/router'
 import debounce from 'lodash.debounce'
@@ -7,6 +7,7 @@ import { createStyleSheet } from 'utils/dom'
 import { type EntityScope } from 'utils/types'
 import dataStore from './store'
 import Indicator from '../components/Indicator'
+import AccountIndicator from '~/components/AccountIndicator'
 import Authenticate from './Authenticate'
 import Search from './Search'
 import {
@@ -30,8 +31,10 @@ import logo from '../../public/img/logo-128.png'
 import { allCategories } from '../constants'
 import { folderState, initFolders, setActiveScope, setActiveFolder } from '../stores/folders'
 import FolderPanel from '../components/FolderPanel'
-import { getCurrentUserId, onLocalChanged, StorageKeys } from 'utils/storage'
+import { getCurrentUserId, getStorageKey, onLocalChanged, StorageKeys } from 'utils/storage'
 import { getLicense, isViolatedLicense, LICENSE_KEY } from 'utils/license'
+import { getAccountRegistry, type AccountEntry } from 'utils/account-manager'
+import { getSyncState, type SyncState } from 'utils/sync-engine'
 
 /**
  * Determine the entity scope from the current route pathname.
@@ -49,6 +52,93 @@ export const Layout = (props) => {
   const location = useLocation()
   const [bookmarksOpen, setBookmarksOpen] = createSignal(true)
   const [foldersOpen, setFoldersOpen] = createSignal(true)
+
+  // Reactive signals for AccountIndicator
+  const [activeUserId, setActiveUserId] = createSignal('')
+  const [activeScreenName, setActiveScreenName] = createSignal('')
+  const [activeProfileImage, setActiveProfileImage] = createSignal('')
+  const [syncStatus, setSyncStatus] = createSignal<'idle' | 'syncing' | 'error'>('idle')
+  const [syncProgress, setSyncProgress] = createSignal<number | undefined>(undefined)
+
+  // Load initial account indicator data and listen for changes
+  async function loadAccountIndicatorData() {
+    const userId = await getCurrentUserId()
+    setActiveUserId(userId)
+
+    if (userId) {
+      const registry = await getAccountRegistry()
+      const entry = registry.find((e) => e.user_id === userId)
+      if (entry) {
+        setActiveScreenName(entry.screen_name)
+        setActiveProfileImage(entry.profile_image_url)
+      }
+
+      const state = await getSyncState()
+      setSyncStatus(state.status)
+      setSyncProgress(state.status === 'syncing' ? state.progress : undefined)
+    } else {
+      setActiveScreenName('')
+      setActiveProfileImage('')
+      setSyncStatus('idle')
+      setSyncProgress(undefined)
+    }
+  }
+
+  onMount(() => {
+    loadAccountIndicatorData()
+  })
+
+  // Listen for Chrome Storage changes to reactively update the indicator
+  const storageChangeListener = (changes: Record<string, chrome.storage.StorageChange>) => {
+    if (StorageKeys.Current_UID in changes) {
+      const newUserId = changes[StorageKeys.Current_UID].newValue || ''
+      setActiveUserId(newUserId)
+      // Reload registry and sync state for the new user
+      loadAccountIndicatorData()
+      // Re-query data for the new account so existing records are immediately displayed
+      if (newUserId) {
+        queryByCondition()
+      }
+      return
+    }
+
+    // Check for account_registry changes
+    if ('account_registry' in changes) {
+      const userId = activeUserId()
+      if (userId) {
+        const registry: AccountEntry[] = changes['account_registry'].newValue || []
+        const entry = registry.find((e) => e.user_id === userId)
+        if (entry) {
+          setActiveScreenName(entry.screen_name)
+          setActiveProfileImage(entry.profile_image_url)
+        }
+      }
+    }
+
+    // Check for sync_state changes (per-account key)
+    const userId = activeUserId()
+    if (userId) {
+      const syncKey = getStorageKey('sync_state', userId)
+      if (syncKey in changes) {
+        const newState: SyncState = changes[syncKey].newValue
+        if (newState) {
+          setSyncStatus(newState.status)
+          setSyncProgress(newState.status === 'syncing' ? newState.progress : undefined)
+        } else {
+          setSyncStatus('idle')
+          setSyncProgress(undefined)
+        }
+      }
+    }
+  }
+
+  onMount(() => {
+    chrome.storage.local.onChanged.addListener(storageChangeListener)
+  })
+
+  onCleanup(() => {
+    chrome.storage.local.onChanged.removeListener(storageChangeListener)
+  })
 
   const activeScope = createMemo(() => getScopeFromPath(location.pathname))
 
@@ -201,6 +291,13 @@ export const Layout = (props) => {
           class={`fixed left-0 top-0 z-40 hidden h-screen w-64 -translate-x-full border-r border-gray-200 bg-white pt-20 text-lg text-gray-700 transition-transform sm:translate-x-0 lg:block dark:border-gray-700 dark:bg-[#121212] dark:text-white ${store.selectedTweet > -1 ? 'hidden' : ''}`}
         >
           <div class="flex h-full flex-col overflow-y-auto px-3 pb-4">
+            <AccountIndicator
+              userId={activeUserId()}
+              screenName={activeScreenName()}
+              profileImageUrl={activeProfileImage()}
+              syncStatus={syncStatus()}
+              syncProgress={syncProgress()}
+            />
             <ul class="flex-1 space-y-1 font-medium">
               <li>
                 <A
@@ -273,6 +370,17 @@ export const Layout = (props) => {
                     <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
                   </svg>
                   <span class="ms-3 flex-1 whitespace-nowrap">Users</span>
+                </A>
+              </li>
+              <li>
+                <A
+                  class="flex items-center rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  href="/accounts"
+                >
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+                  </svg>
+                  <span class="ms-3 flex-1 whitespace-nowrap">Accounts</span>
                 </A>
               </li>
             </ul>

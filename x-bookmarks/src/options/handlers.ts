@@ -16,6 +16,8 @@ import {
   iterate,
   countRecords,
   deleteRecord,
+  deleteRecordsByTweetIds,
+  getAllTweetIds,
   findRecords,
   getRencentTweets,
   getTopUsers,
@@ -226,6 +228,9 @@ export async function* syncAllBookmarks(forceSync = false) {
   let cursor: string | undefined = forceSync
     ? (await getLocal(StorageKeys.Bookmark_Cursor))[StorageKeys.Bookmark_Cursor]
     : undefined
+  // Track all tweet_ids received from the server during a full sync
+  // to detect server-side deletions
+  const serverTweetIds: Set<string> = new Set()
   while (true) {
     const json = await getBookmarks(cursor)
     const instruction =
@@ -264,6 +269,14 @@ export async function* syncAllBookmarks(forceSync = false) {
           }
         })
         .filter((t) => t && del_ids.includes(t.tweet_id) === false)
+
+      // Track server-side tweet IDs during full sync
+      if (forceSync) {
+        docs.forEach((t) => {
+          if (t) serverTweetIds.add(t.tweet_id)
+        })
+      }
+
       await upsertRecords(docs)
       yield docs
     }
@@ -275,6 +288,22 @@ export async function* syncAllBookmarks(forceSync = false) {
       }
     } else {
       break
+    }
+  }
+
+  // After a full sync completes, remove local records that no longer exist on the server
+  if (forceSync && serverTweetIds.size > 0) {
+    try {
+      const localTweetIds = await getAllTweetIds()
+      const staleIds = localTweetIds.filter((id) => !serverTweetIds.has(id))
+      if (staleIds.length > 0) {
+        const deleted = await deleteRecordsByTweetIds(staleIds)
+        console.log(
+          `Removed ${deleted} bookmarks deleted on server during sync`,
+        )
+      }
+    } catch (err) {
+      console.error('Failed to clean up server-side deletions', err)
     }
   }
 }

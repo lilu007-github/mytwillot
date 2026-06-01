@@ -3,6 +3,7 @@ import { formatDate } from '../date'
 import { parseTwitterQuery } from '../query-parser'
 import { getCurrentUserId } from '../storage'
 import { openDb, getObjectStore, TWEETS_TABLE_NAME_V2 } from './index'
+import { requireActiveAccount } from './context-guard'
 
 const metadataFields =
   'views_count,bookmark_count,favorite_count,quote_count,reply_count,retweet_count,bookmarked,favorited,is_quote_status,retweeted'.split(
@@ -22,6 +23,7 @@ export async function upsertRecords(
   records: Tweet[],
   isUpdate = false,
 ): Promise<void> {
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
 
@@ -142,6 +144,7 @@ export async function findRecords(
   lastId = '',
   pageSize = 100,
 ): Promise<Tweet[]> {
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
   const options = parseTwitterQuery(keyword)
@@ -204,6 +207,7 @@ export async function getRecord(tweetId: string): Promise<Tweet | undefined> {
     return Promise.resolve(undefined)
   }
 
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
   const key = getPostId(user_id, tweetId)
@@ -229,6 +233,7 @@ export async function deleteRecord(id: string): Promise<Tweet | undefined> {
     return Promise.resolve(undefined)
   }
 
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
   const key = getPostId(user_id, id)
@@ -245,6 +250,84 @@ export async function deleteRecord(id: string): Promise<Tweet | undefined> {
         'Get record error: ' + (event.target as IDBRequest).error?.toString(),
       )
     }
+  })
+}
+
+/**
+ * Get all tweet_ids for the current user's records.
+ * Used to compare local state against server state during full sync.
+ */
+export async function getAllTweetIds(): Promise<string[]> {
+  const db = await openDb()
+  const user_id = await getCurrentUserId()
+  if (!user_id) {
+    return []
+  }
+
+  return new Promise((resolve, reject) => {
+    const { objectStore } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
+    const index = objectStore.index('owner_id')
+    const range = IDBKeyRange.only(user_id)
+    const request = index.openCursor(range)
+    const ids: string[] = []
+
+    request.onsuccess = (event: Event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
+      if (cursor) {
+        ids.push(cursor.value.tweet_id)
+        cursor.continue()
+      } else {
+        resolve(ids)
+      }
+    }
+
+    request.onerror = (event: Event) => {
+      reject(
+        'Failed to get tweet ids: ' +
+          (event.target as IDBRequest).error?.toString(),
+      )
+    }
+  })
+}
+
+/**
+ * Delete multiple records by their tweet_ids for the current user.
+ * Used to remove bookmarks that were deleted on the server during sync.
+ */
+export async function deleteRecordsByTweetIds(
+  tweetIds: string[],
+): Promise<number> {
+  if (!tweetIds.length) {
+    return 0
+  }
+
+  const db = await openDb()
+  const user_id = await getCurrentUserId()
+
+  return new Promise((resolve, reject) => {
+    const { objectStore, transaction } = getObjectStore(
+      db,
+      TWEETS_TABLE_NAME_V2,
+    )
+    let deleted = 0
+
+    transaction.oncomplete = () => {
+      resolve(deleted)
+    }
+
+    transaction.onerror = (event: Event) => {
+      reject(
+        'Transaction error: ' + (event.target as IDBRequest).error?.toString(),
+      )
+    }
+
+    tweetIds.forEach((tweetId) => {
+      const key = getPostId(user_id, tweetId)
+      const request = objectStore.delete(key)
+      request.onsuccess = () => {
+        deleted++
+      }
+    })
   })
 }
 

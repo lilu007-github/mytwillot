@@ -12,6 +12,8 @@ import {
   getRencentTweets,
   clearFolder,
   getPostId,
+  getAllTweetIds,
+  deleteRecordsByTweetIds,
 } from './tweets'
 import TweetGenerator from '../../../x-bookmarks/__mocks__/tweet'
 import {
@@ -175,6 +177,74 @@ describe('dbModule', () => {
       await clearFolder('testFolder')
       const results = await findRecords('', '', 'testFolder')
       expect(results.length).toBe(0)
+    })
+  })
+
+  describe('getAllTweetIds', () => {
+    it('should return all tweet_ids for the current user', async () => {
+      const tweets = TweetGenerator.generateTweets(5)
+      await upsertRecords(tweets)
+      const ids = await getAllTweetIds()
+      expect(ids.length).toBe(5)
+      tweets.forEach((t) => {
+        expect(ids).toContain(t.tweet_id)
+      })
+    })
+
+    it('should return empty array when no records exist', async () => {
+      const ids = await getAllTweetIds()
+      expect(ids).toEqual([])
+    })
+
+    it('should only return tweet_ids for the current user', async () => {
+      // Insert tweets for user A
+      const tweetsA = TweetGenerator.generateTweets(3)
+      await upsertRecords(tweetsA)
+
+      // Switch to user B and insert tweets
+      await setCurrentUserId('9999999999')
+      indexedDB = new IDBFactory()
+      const tweetsB = TweetGenerator.generateTweets(2)
+      await upsertRecords(tweetsB)
+
+      // getAllTweetIds should only return user B's tweets
+      const ids = await getAllTweetIds()
+      expect(ids.length).toBe(2)
+      tweetsB.forEach((t) => {
+        expect(ids).toContain(t.tweet_id)
+      })
+    })
+  })
+
+  describe('deleteRecordsByTweetIds', () => {
+    it('should delete records by tweet_ids', async () => {
+      const tweets = TweetGenerator.generateTweets(5)
+      await upsertRecords(tweets)
+
+      const idsToDelete = tweets.slice(0, 3).map((t) => t.tweet_id)
+      const deleted = await deleteRecordsByTweetIds(idsToDelete)
+      expect(deleted).toBe(3)
+
+      const remaining = await findRecords()
+      expect(remaining.length).toBe(2)
+    })
+
+    it('should return 0 when given empty array', async () => {
+      const deleted = await deleteRecordsByTweetIds([])
+      expect(deleted).toBe(0)
+    })
+
+    it('should handle non-existent tweet_ids gracefully', async () => {
+      const tweets = TweetGenerator.generateTweets(3)
+      await upsertRecords(tweets)
+
+      const deleted = await deleteRecordsByTweetIds(['nonexistent_1', 'nonexistent_2'])
+      // delete operations succeed even if key doesn't exist in IndexedDB
+      expect(deleted).toBe(2)
+
+      // Original records should still be intact
+      const remaining = await findRecords()
+      expect(remaining.length).toBe(3)
     })
   })
 })
