@@ -370,12 +370,12 @@ export async function openDb(
   }
 
   return new Promise((resolve, reject) => {
-    if (!window.indexedDB) {
+    if (!globalThis.indexedDB) {
       reject('IndexedDB is not supported by this browser.')
       return
     }
 
-    const request = window.indexedDB.open(dbName, dbVersion)
+    const request = globalThis.indexedDB.open(dbName, dbVersion)
     request.onerror = (event: Event) => {
       reject(
         'Database error: ' +

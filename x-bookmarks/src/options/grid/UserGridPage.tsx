@@ -66,9 +66,12 @@ export default function UserGridPage() {
     setColumnVisibility(prefs)
     await refreshCounts()
 
-    // Re-query when the active account changes
+    // Re-query when the active account changes or X page captures users.
     const onStorageChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
-      if (StorageKeys.Current_UID in changes) {
+      if (
+        StorageKeys.Current_UID in changes ||
+        StorageKeys.Captured_Users_Updated in changes
+      ) {
         refreshCounts()
         refreshData()
       }

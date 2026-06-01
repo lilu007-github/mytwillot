@@ -1,4 +1,5 @@
-import { getFollowers, getFollowing } from 'utils/api/twitter-user'
+import { getFollowing } from 'utils/api/twitter-user'
+import { getAccountRegistry } from 'utils/account-manager'
 import { getCurrentUserId } from 'utils/storage'
 import { Endpoint, TimelineUser } from 'utils/types'
 import {
@@ -27,7 +28,15 @@ export async function syncUsers(
     return 0
   }
 
-  const fetcher = relationship === 'followers' ? getFollowers : getFollowing
+  if (relationship === 'followers') {
+    await openFollowersPage(uid)
+    alert(
+      'Followers are captured from X directly. Scroll the X followers page, then refresh Twillot to see captured users.',
+    )
+    return 0
+  }
+
+  const fetcher = getFollowing
   const keyPath =
     relationship === 'followers'
       ? ResponseKeyPath.user_followers
@@ -142,4 +151,25 @@ export async function syncUsers(
   }
 
   return totalSynced
+}
+
+async function openFollowersPage(userId: string) {
+  const registry = await getAccountRegistry()
+  const account = registry.find((entry) => entry.user_id === userId)
+  const followersUrl = account?.screen_name
+    ? `https://x.com/${account.screen_name}/followers`
+    : 'https://x.com/followers'
+
+  const tabs = await chrome.tabs.query({
+    url: ['https://x.com/*', 'https://*.x.com/*'],
+    currentWindow: true,
+  })
+  const existing = tabs.find((tab) => tab.url?.includes('/followers'))
+
+  if (existing?.id) {
+    await chrome.tabs.update(existing.id, { active: true, url: followersUrl })
+    return
+  }
+
+  await chrome.tabs.create({ url: followersUrl, active: true })
 }

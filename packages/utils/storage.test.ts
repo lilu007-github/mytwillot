@@ -7,6 +7,9 @@ import {
   getStorageKey,
   setLocal,
   getLocal,
+  captureGraphQLRequestTemplateFromUrl,
+  captureQueryIdFromUrl,
+  getCapturedGraphQLRequestTemplate,
   clearCurrentLocal,
   onLocalChanged,
   setCurrentUserId,
@@ -79,5 +82,35 @@ describe('Storage Module', () => {
     expect(callback).toHaveBeenCalledWith({
       testKey: { oldValue: 'oldValue', newValue: 'newValue' },
     })
+  })
+
+  it('captures GraphQL request templates from x.com URLs', async () => {
+    await captureGraphQLRequestTemplateFromUrl(
+      'https://x.com/i/api/graphql/live-query-id/Followers?variables=%7B%22userId%22%3A%22123%22%2C%22count%22%3A20%7D&features=%7B%22responsive_web_graphql_timeline_navigation_enabled%22%3Atrue%7D',
+    )
+
+    const template = await getCapturedGraphQLRequestTemplate('Followers')
+
+    expect(template).toEqual({
+      queryId: 'live-query-id',
+      operationName: 'Followers',
+      variables: {
+        userId: '123',
+        count: 20,
+      },
+      features: {
+        responsive_web_graphql_timeline_navigation_enabled: true,
+      },
+    })
+  })
+
+  it('does not capture request templates when only capturing query ids', async () => {
+    await captureQueryIdFromUrl(
+      'https://x.com/i/api/graphql/failed-query-id/Followers?variables=%7B%22userId%22%3A%22123%22%7D',
+    )
+
+    const template = await getCapturedGraphQLRequestTemplate('Followers')
+
+    expect(template).toBeUndefined()
   })
 })
