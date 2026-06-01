@@ -35,6 +35,7 @@ import { getCurrentUserId, getStorageKey, getAuthInfo, onLocalChanged, StorageKe
 import { getLicense, isViolatedLicense, LICENSE_KEY } from 'utils/license'
 import { getAccountRegistry, upsertAccountEntry, type AccountEntry } from 'utils/account-manager'
 import { getSyncState, type SyncState } from 'utils/sync-engine'
+import { refreshData as refreshGridData } from './grid/gridStore'
 
 /**
  * Determine the entity scope from the current route pathname.
@@ -120,7 +121,9 @@ export const Layout = (props) => {
         topUsers: [],
         historySize: 0,
       })
-        // Try to start sync for the new account. If the token already exists
+      // Refresh the Users grid so it re-queries with the new account's owner_id
+      refreshGridData()
+      // Try to start sync for the new account. If the token already exists
       // (returning account), initSync will work immediately. If not (brand new
       // account), initSync will fail with AUTH_FAILED — that's fine, the token
       // watcher below will retry when the token arrives.
