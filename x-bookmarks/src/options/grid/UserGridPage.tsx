@@ -51,6 +51,7 @@ export default function UserGridPage() {
   const [counts, setCounts] = createSignal({ followers: 0, following: 0 })
   const [isSyncing, setIsSyncing] = createSignal(false)
   const [syncProgress, setSyncProgress] = createSignal(0)
+  const [syncStatus, setSyncStatus] = createSignal('')
 
   async function refreshCounts() {
     try {
@@ -72,8 +73,25 @@ export default function UserGridPage() {
         StorageKeys.Current_UID in changes ||
         StorageKeys.Captured_Users_Updated in changes
       ) {
+        const captured = changes[StorageKeys.Captured_Users_Updated]?.newValue
+        if (captured?.relationship === 'follower') {
+          setSyncStatus(`Captured ${captured.count} followers from X.`)
+          setIsSyncing(false)
+        }
         refreshCounts()
         refreshData()
+      }
+      const debug = changes[StorageKeys.Captured_Users_Debug]?.newValue
+      if (debug?.stage === 'capture-script-loaded') {
+        setSyncStatus('Waiting for X to load followers...')
+      } else if (debug?.stage === 'content-script-received') {
+        setSyncStatus('Importing followers from X...')
+      } else if (debug?.stage === 'background-error') {
+        setSyncStatus('Follower import failed. Please try again.')
+        setIsSyncing(false)
+      } else if (debug?.stage === 'no-user-docs') {
+        setSyncStatus('X loaded the page, but no followers were found yet.')
+        setIsSyncing(false)
       }
     }
     chrome.storage.local.onChanged.addListener(onStorageChanged)
@@ -197,8 +215,21 @@ export default function UserGridPage() {
   const handleSync = async () => {
     setIsSyncing(true)
     setSyncProgress(0)
-    await syncUsers(gridState.relationship, (total) => setSyncProgress(total))
-    setIsSyncing(false)
+    setSyncStatus(
+      gridState.relationship === 'followers'
+        ? 'Opening X followers page...'
+        : '',
+    )
+    const result = await syncUsers(gridState.relationship, (total) =>
+      setSyncProgress(total),
+    )
+    if (result.mode === 'x-page') {
+      setIsSyncing(false)
+      setSyncStatus('Waiting for X to load followers...')
+    } else {
+      setIsSyncing(false)
+      setSyncStatus(result.count > 0 ? `Synced ${result.count} users.` : '')
+    }
     await refreshCounts()
     refreshData()
   }
@@ -211,8 +242,13 @@ export default function UserGridPage() {
           <Show when={isSyncing()}>
             <span class="flex items-center gap-2 text-sm text-gray-500">
               <Spinner className="h-4 w-4 fill-blue-500 text-gray-200" />
-              Synced {syncProgress()} users...
+              {gridState.relationship === 'followers'
+                ? syncStatus()
+                : `Synced ${syncProgress()} users...`}
             </span>
+          </Show>
+          <Show when={!isSyncing() && syncStatus()}>
+            <span class="text-sm text-gray-500">{syncStatus()}</span>
           </Show>
           <button
             type="button"

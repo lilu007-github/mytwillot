@@ -13,6 +13,11 @@ import { FetchError } from 'utils/xfetch'
 
 import type { Relationship } from './types'
 
+export interface SyncUsersResult {
+  count: number
+  mode: 'api' | 'x-page'
+}
+
 /**
  * Syncs followers/following from the Twitter API into IndexedDB.
  * Calls onProgress with the running total as records are stored.
@@ -21,19 +26,16 @@ import type { Relationship } from './types'
 export async function syncUsers(
   relationship: Relationship,
   onProgress?: (total: number) => void,
-): Promise<number> {
+): Promise<SyncUsersResult> {
   const uid = await getCurrentUserId()
   if (!uid) {
     alert('Please authenticate first')
-    return 0
+    return { count: 0, mode: 'api' }
   }
 
   if (relationship === 'followers') {
     await openFollowersPage(uid)
-    alert(
-      'Followers are captured from X directly. Scroll the X followers page, then refresh Twillot to see captured users.',
-    )
-    return 0
+    return { count: 0, mode: 'x-page' }
   }
 
   const fetcher = getFollowing
@@ -150,7 +152,7 @@ export async function syncUsers(
     }
   }
 
-  return totalSynced
+  return { count: totalSynced, mode: 'api' }
 }
 
 async function openFollowersPage(userId: string) {
