@@ -34,6 +34,8 @@ export async function syncUsers(
       : ResponseKeyPath.user_following
   const endpoint =
     relationship === 'followers' ? Endpoint.FOLLOWERS : Endpoint.FOLLOWING
+  const storedRelationship =
+    relationship === 'followers' ? 'follower' : 'following'
 
   let cursor = ''
   let totalSynced = 0
@@ -76,10 +78,10 @@ export async function syncUsers(
              */
             const core = user.core || {}
             return {
-              id: getUserId(uid, relationship, user.rest_id),
+              id: getUserId(uid, storedRelationship, user.rest_id),
               rest_id: user.rest_id,
               owner_id: uid,
-              relationship,
+              relationship: storedRelationship,
               name: core.name ?? legacy.name ?? '',
               screen_name: core.screen_name ?? legacy.screen_name ?? '',
               profile_image_url_https:

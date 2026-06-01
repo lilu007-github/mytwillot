@@ -3,11 +3,13 @@ import {
   createMemo,
   createSignal,
   on,
+  onCleanup,
   onMount,
   Show,
 } from 'solid-js'
 
 import { countUsers } from 'utils/db/users'
+import { StorageKeys } from 'utils/storage'
 
 import Spinner from '~/components/Spinner'
 import { DEFAULT_COLUMNS, type Relationship, type SortState } from './types'
@@ -63,6 +65,16 @@ export default function UserGridPage() {
     const prefs = await loadColumnPreferences()
     setColumnVisibility(prefs)
     await refreshCounts()
+
+    // Re-query when the active account changes
+    const onStorageChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
+      if (StorageKeys.Current_UID in changes) {
+        refreshCounts()
+        refreshData()
+      }
+    }
+    chrome.storage.local.onChanged.addListener(onStorageChanged)
+    onCleanup(() => chrome.storage.local.onChanged.removeListener(onStorageChanged))
   })
 
   useGridData()

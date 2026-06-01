@@ -29,6 +29,10 @@ function filterByFolder(
   return users.filter((u) => u.folder === activeFolder)
 }
 
+function toStoredRelationship(relationship: 'followers' | 'following') {
+  return relationship === 'followers' ? 'follower' : 'following'
+}
+
 export function useGridData(): void {
   // Reset pagination to page 1 when folder filter changes
   createEffect(
@@ -58,7 +62,7 @@ export function useGridData(): void {
 
         try {
           const allUsers = await findUsers(
-            gridState.relationship,
+            toStoredRelationship(gridState.relationship),
             gridState.keyword,
             Number.MAX_SAFE_INTEGER,
             0,

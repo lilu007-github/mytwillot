@@ -27,23 +27,7 @@ chrome.webRequest.onSendHeaders.addListener(
      */
     await captureQueryIdFromUrl(url)
 
-    /**
-     * The interface for members and non-members is different.
-     * Members request folders first, while regular users directly request bookmarks.
-     */
-    if (!url.includes('/Bookmarks') && !url.includes('/BookmarkFoldersSlice')) {
-      return
-    }
-
-    console.log('syncAuthHeaders: url', { url })
-
     await syncAuthHeaders(details.requestHeaders)
-
-    const storage = await chrome.storage.local.get()
-    console.log('syncAuthHeaders: storage', {
-      url,
-      ...storage,
-    })
   },
   {
     types: ['xmlhttprequest'],
