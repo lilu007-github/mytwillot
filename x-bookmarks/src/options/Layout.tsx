@@ -31,7 +31,7 @@ import logo from '../../public/img/logo-128.png'
 import { allCategories } from '../constants'
 import { folderState, initFolders, setActiveScope, setActiveFolder } from '../stores/folders'
 import FolderPanel from '../components/FolderPanel'
-import { getCurrentUserId, getStorageKey, onLocalChanged, StorageKeys } from 'utils/storage'
+import { getCurrentUserId, getStorageKey, getAuthInfo, onLocalChanged, StorageKeys } from 'utils/storage'
 import { getLicense, isViolatedLicense, LICENSE_KEY } from 'utils/license'
 import { getAccountRegistry, upsertAccountEntry, type AccountEntry } from 'utils/account-manager'
 import { getSyncState, type SyncState } from 'utils/sync-engine'
@@ -120,20 +120,29 @@ export const Layout = (props) => {
         topUsers: [],
         historySize: 0,
       })
-      // Don't call initSync() here — the new account's auth token hasn't been
-      // captured yet. initSync() will be triggered when the token key is written.
+        // Try to start sync for the new account. If the token already exists
+      // (returning account), initSync will work immediately. If not (brand new
+      // account), initSync will fail with AUTH_FAILED — that's fine, the token
+      // watcher below will retry when the token arrives.
+      if (newUserId) {
+        getAuthInfo().then((auth) => {
+          if (auth && auth.token) {
+            Promise.all([initSync(), initFolders('bookmark')])
+          }
+          // else: wait for token to be written (new account, no prior session)
+        })
+      }
       return
     }
 
     // When the auth token for the active account is written (captured by the
     // background script from a Twitter request), kick off initSync + initFolders.
-    // This handles the case where the user switches accounts and the new token
-    // arrives after the account switch event.
+    // This handles brand-new accounts whose token hasn't been captured yet.
     const userId = activeUserId()
     if (userId) {
       const tokenKey = getStorageKey(StorageKeys.Token, userId)
-      if (tokenKey in changes && changes[tokenKey].newValue && !changes[tokenKey].oldValue) {
-        // Token just appeared for this account — start sync
+      if (tokenKey in changes && changes[tokenKey].newValue) {
+        // Token written for this account — start sync
         Promise.all([initSync(), initFolders('bookmark')])
         return
       }
