@@ -106,7 +106,7 @@ export const Layout = (props) => {
       setActiveUserId(newUserId)
       // Reload registry and sync state for the new user
       loadAccountIndicatorData()
-      // Reset the store so old account's data is cleared immediately
+      // Clear the store immediately so old account's data disappears
       setStore({
         tweets: [],
         totalCount: null,
@@ -120,20 +120,31 @@ export const Layout = (props) => {
         topUsers: [],
         historySize: 0,
       })
-
-      // Re-initialize sync for the new account (handles both full and incremental)
-      if (newUserId) {
-        initSync()
-      }
+      // Don't call initSync() here — the new account's auth token hasn't been
+      // captured yet. initSync() will be triggered when the token key is written.
       return
+    }
+
+    // When the auth token for the active account is written (captured by the
+    // background script from a Twitter request), kick off initSync + initFolders.
+    // This handles the case where the user switches accounts and the new token
+    // arrives after the account switch event.
+    const userId = activeUserId()
+    if (userId) {
+      const tokenKey = getStorageKey(StorageKeys.Token, userId)
+      if (tokenKey in changes && changes[tokenKey].newValue && !changes[tokenKey].oldValue) {
+        // Token just appeared for this account — start sync
+        Promise.all([initSync(), initFolders('bookmark')])
+        return
+      }
     }
 
     // Check for account_registry changes
     if ('account_registry' in changes) {
-      const userId = activeUserId()
-      if (userId) {
+      const registryUserId = activeUserId()
+      if (registryUserId) {
         const registry: AccountEntry[] = changes['account_registry'].newValue || []
-        const entry = registry.find((e) => e.user_id === userId)
+        const entry = registry.find((e) => e.user_id === registryUserId)
         if (entry) {
           setActiveScreenName(entry.screen_name)
           setActiveProfileImage(entry.profile_image_url)
@@ -142,9 +153,9 @@ export const Layout = (props) => {
     }
 
     // Check for sync_state changes (per-account key)
-    const userId = activeUserId()
-    if (userId) {
-      const syncKey = getStorageKey('sync_state', userId)
+    const syncUserId = activeUserId()
+    if (syncUserId) {
+      const syncKey = getStorageKey('sync_state', syncUserId)
       if (syncKey in changes) {
         const newState: SyncState = changes[syncKey].newValue
         if (newState) {
