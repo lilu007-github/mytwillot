@@ -106,9 +106,24 @@ export const Layout = (props) => {
       setActiveUserId(newUserId)
       // Reload registry and sync state for the new user
       loadAccountIndicatorData()
-      // Re-query data for the new account so existing records are immediately displayed
+      // Reset the store so old account's data is cleared immediately
+      setStore({
+        tweets: [],
+        totalCount: null,
+        keyword: '',
+        category: '',
+        folder: '',
+        isAuthFailed: false,
+        isAutoSyncing: false,
+        isForceSyncing: false,
+        isForceSyncTimedout: false,
+        topUsers: [],
+        historySize: 0,
+      })
+
+      // Re-initialize sync for the new account (handles both full and incremental)
       if (newUserId) {
-        queryByCondition()
+        initSync()
       }
       return
     }
