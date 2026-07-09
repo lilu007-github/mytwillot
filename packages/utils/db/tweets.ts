@@ -93,6 +93,51 @@ export async function upsertRecords(
   })
 }
 
+/**
+ * Upsert records that already have an explicit `id` (category records use a
+ * namespaced id like `likes_${owner}_${tweet}`). Unlike upsertRecords, this
+ * does NOT recompute the key from tweet_id, and it preserves user-authored
+ * fields (folder/tags/note/title, thread state) across re-captures.
+ */
+export async function upsertCategoryRecords(records: Tweet[]): Promise<void> {
+  await requireActiveAccount()
+  const db = await openDb()
+
+  return new Promise((resolve, reject) => {
+    const { transaction, objectStore } = getObjectStore(
+      db,
+      TWEETS_TABLE_NAME_V2,
+    )
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = (event: Event) => {
+      reject(
+        'Transaction error: ' + (event.target as IDBRequest).error?.toString(),
+      )
+    }
+
+    records.forEach((record) => {
+      if (!record || !record.id) {
+        return
+      }
+      const getRequest = objectStore.get(record.id)
+      getRequest.onsuccess = () => {
+        const existing = getRequest.result
+        if (existing) {
+          record.folder = existing.folder
+          record.tags = existing.tags
+          record.note = existing.note
+          record.title = existing.title
+          if (typeof existing.is_thread === 'boolean') {
+            record.is_thread = existing.is_thread
+            record.conversations = existing.conversations
+          }
+        }
+        objectStore.put(record)
+      }
+    })
+  })
+}
+
 function meetsCriteria(
   tweet: Tweet,
   options: QueryOptions,

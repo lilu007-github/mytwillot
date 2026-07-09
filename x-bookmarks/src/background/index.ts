@@ -15,6 +15,10 @@ import {
 import { cancelCurrentSync, startFullSync } from 'utils/sync-engine'
 import { upsertAccountEntry } from 'utils/account-manager'
 import { getUserId, type StoredUser, upsertUsers } from 'utils/db/users'
+import { getCurrentUserId } from 'utils/storage'
+import { parseTimelineToRecords } from 'utils/api/timeline-parse'
+import { upsertCategoryRecords } from 'utils/db/tweets'
+import type { TweetCategory } from 'utils/types'
 
 interface CapturedUserListMessage {
   type: 'TWILLOT_CAPTURED_X_USER_LIST'
@@ -22,27 +26,94 @@ interface CapturedUserListMessage {
   json: unknown
 }
 
+interface CapturedTimelineMessage {
+  type: 'TWILLOT_CAPTURED_TIMELINE'
+  operation: string
+  url: string
+  json: unknown
+}
+
+// Map a captured GraphQL operation to a stored tweet category.
+const OPERATION_CATEGORY: Record<string, TweetCategory> = {
+  Bookmarks: 'bookmarks',
+  Likes: 'likes',
+  UserTweets: 'posts',
+  UserTweetsAndReplies: 'replies',
+  UserMedia: 'media',
+}
+
 chrome.action.onClicked.addListener(function () {
   chrome.runtime.openOptionsPage()
 })
 
-chrome.runtime.onMessage.addListener((message: CapturedUserListMessage) => {
-  if (message?.type !== 'TWILLOT_CAPTURED_X_USER_LIST') {
+chrome.runtime.onMessage.addListener(
+  (message: CapturedUserListMessage | CapturedTimelineMessage) => {
+    if (message?.type === 'TWILLOT_CAPTURED_X_USER_LIST') {
+      ingestCapturedUserList(message.url, message.json).catch((err) => {
+        chrome.storage.local.set({
+          [StorageKeys.Captured_Users_Debug]: {
+            stage: 'background-error',
+            url: message.url,
+            error: err instanceof Error ? err.message : String(err),
+            updated_at: Date.now(),
+          },
+        })
+        console.error('Failed to ingest captured X user list', err)
+      })
+    } else if (message?.type === 'TWILLOT_CAPTURED_TIMELINE') {
+      ingestCapturedTimeline(message.operation, message.url, message.json).catch(
+        (err) => console.error('Failed to ingest captured timeline', err),
+      )
+    }
+  },
+)
+
+/**
+ * Passively ingest a captured tweet timeline (bookmarks/likes/posts/replies/
+ * media) that the X web app fetched while the user browses. This bypasses the
+ * direct-API rate limits and the 800-bookmark cap.
+ */
+async function ingestCapturedTimeline(
+  operation: string,
+  url: string,
+  json: unknown,
+) {
+  const category = OPERATION_CATEGORY[operation]
+  if (!category) {
     return
   }
 
-  ingestCapturedUserList(message.url, message.json).catch((err) => {
-    chrome.storage.local.set({
-      [StorageKeys.Captured_Users_Debug]: {
-        stage: 'background-error',
-        url: message.url,
-        error: err instanceof Error ? err.message : String(err),
-        updated_at: Date.now(),
-      },
-    })
-    console.error('Failed to ingest captured X user list', err)
+  const ownerId = await getCurrentUserId()
+  if (!ownerId) {
+    return
+  }
+
+  // For profile-scoped timelines (posts/replies/media/likes), the response
+  // belongs to whichever profile is being viewed. Only ingest the logged-in
+  // user's own data so we don't attribute a stranger's tweets to this account.
+  if (category !== 'bookmarks') {
+    const targetUserId = getUserIdFromGraphQLUrl(url)
+    if (targetUserId && targetUserId !== ownerId) {
+      return
+    }
+  }
+
+  const { docs } = parseTimelineToRecords(json, category, ownerId)
+  if (docs.length === 0) {
+    return
+  }
+
+  await upsertCategoryRecords(docs)
+  await chrome.storage.local.set({
+    [StorageKeys.Captured_Timeline_Updated]: {
+      owner_id: ownerId,
+      category,
+      count: docs.length,
+      updated_at: Math.floor(Date.now() / 1000),
+    },
   })
-})
+  console.log(`Captured ${docs.length} ${category} from X page`)
+}
 
 async function ingestCapturedUserList(url: string, json: unknown) {
   await chrome.storage.local.set({

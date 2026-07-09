@@ -24,6 +24,7 @@ export enum StorageKeys {
   Query_Request_Templates = 'graphql_request_templates',
   Captured_Users_Updated = 'captured_users_updated',
   Captured_Users_Debug = 'captured_users_debug',
+  Captured_Timeline_Updated = 'captured_timeline_updated',
 }
 
 export interface GraphQLRequestTemplate {

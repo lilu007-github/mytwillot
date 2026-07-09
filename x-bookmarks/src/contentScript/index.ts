@@ -2,7 +2,8 @@ import { parseTwidCookie } from 'utils/cookie-parser'
 import { detectAndSetActiveAccount } from 'utils/account-manager'
 import { StorageKeys } from 'utils/storage'
 
-const CAPTURE_SOURCE = 'twillot:x-user-list-response'
+const CAPTURE_SOURCE = 'twillot:x-graphql-response'
+const USER_OPERATIONS = new Set(['Followers', 'Following', 'BlueVerifiedFollowers'])
 
 document.documentElement.dataset.twillotCaptureBridge = 'loading'
 setCaptureDebug('content-script-loaded')
@@ -21,7 +22,7 @@ window.addEventListener('message', (event) => {
     return
   }
 
-  forwardCapturedUserList(message.url, message.json)
+  forwardCaptured(message.operation, message.url, message.json)
 })
 
 document.addEventListener(CAPTURE_SOURCE, (event) => {
@@ -30,22 +31,33 @@ document.addEventListener(CAPTURE_SOURCE, (event) => {
     return
   }
 
-  forwardCapturedUserList(detail.url, detail.json)
+  forwardCaptured(detail.operation, detail.url, detail.json)
 })
 
-function forwardCapturedUserList(url: string, json: unknown) {
+function forwardCaptured(operation: string, url: string, json: unknown) {
   setCaptureDebug('content-script-received', url)
 
-  chrome.runtime.sendMessage({
-    type: 'TWILLOT_CAPTURED_X_USER_LIST',
-    url,
-    json,
-  })
+  // Followers/Following go to the users store; everything else is a tweet
+  // timeline that maps to a category (bookmarks/likes/posts/replies/media).
+  if (USER_OPERATIONS.has(operation)) {
+    chrome.runtime.sendMessage({
+      type: 'TWILLOT_CAPTURED_X_USER_LIST',
+      url,
+      json,
+    })
+  } else {
+    chrome.runtime.sendMessage({
+      type: 'TWILLOT_CAPTURED_TIMELINE',
+      operation,
+      url,
+      json,
+    })
+  }
 }
 
 function injectCaptureScript() {
   const script = document.createElement('script')
-  script.src = chrome.runtime.getURL('captureFollowers.js')
+  script.src = chrome.runtime.getURL('captureGraphql.js')
   script.async = false
   script.onload = () => {
     document.documentElement.dataset.twillotCaptureBridge = 'loaded'

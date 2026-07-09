@@ -57,6 +57,7 @@ export default defineManifest({
         'img/logo-48.png',
         'img/logo-128.png',
         'captureFollowers.js',
+        'captureGraphql.js',
       ],
       matches: ['https://x.com/*'],
     },
