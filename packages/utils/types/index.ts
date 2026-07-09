@@ -41,6 +41,9 @@ export interface Tweet extends TweetQuoted {
   title?: string
   note?: string
   tags?: string[]
+  // AI-generated one-line summary (client-side LLM). Persisted so all export
+  // paths (zip / vault / REST) can include it in note frontmatter.
+  ai_summary?: string
   sort_index: string
   has_image: boolean
   has_video: boolean

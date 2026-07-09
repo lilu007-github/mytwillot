@@ -47,7 +47,7 @@ import {
 import dataStore, { mutateStore } from './store'
 import { getLevel, getLicense, MemberLevel } from 'utils/license'
 import { PRICING_URL } from '~/libs/member'
-import { classifyTweet, getAISettings } from 'utils/ai/classify'
+import { classifyTweet, summarizeTweet, getAISettings } from 'utils/ai/classify'
 
 // Wrap the sleep function
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -592,4 +592,91 @@ export async function smartTagging() {
   }
 
   setStore('isTagging', false)
+}
+
+/**
+ * Generate a one-line AI summary for each bookmark that lacks one and persist
+ * it onto the record (`ai_summary`). All Obsidian export paths then include it
+ * in note frontmatter. Mirrors smartTagging: capped per run, rate-limit aware,
+ * prompts for a key when missing.
+ */
+export async function smartSummarize() {
+  const [store, setStore] = dataStore
+  const settings = await getAISettings()
+  if (!settings.apiKey) {
+    alert(
+      'Add your AI API key in Settings to generate summaries. ' +
+        'Your key is stored locally and sent directly to your chosen provider.',
+    )
+    location.hash = '#/settings'
+    return
+  }
+
+  if (store.isSummarizing) {
+    return
+  }
+
+  const maxTweets = 1000
+  let offset = 0
+  let processed = 0
+  setStore('isSummarizing', true)
+
+  while (processed < maxTweets && store.isSummarizing) {
+    let tweets: typeof store.tweets
+    try {
+      // Only tweets without a summary yet (undefined). '' means "tried, empty".
+      tweets = await iterate(
+        (t) => typeof t.ai_summary !== 'string',
+        BATCH_SIZE,
+        offset,
+      )
+    } catch (error) {
+      console.error('Error fetching un-summarized tweets:', error)
+      break
+    }
+
+    if (tweets.length === 0) {
+      break
+    }
+    offset += tweets.length
+
+    for (const tweet of tweets) {
+      if (!store.isSummarizing) {
+        break
+      }
+
+      try {
+        const text = tweet.quoted_tweet
+          ? tweet.full_text + '\n' + tweet.quoted_tweet.full_text
+          : tweet.full_text
+
+        const summary = await summarizeTweet({ text, settings })
+        // Persist even '' so we don't retry tweets the model returned nothing for.
+        tweet.ai_summary = summary
+        await upsertRecords([tweet], true)
+        // Reflect into the live list so the UI can show it immediately.
+        mutateStore((state) => {
+          const item = state.tweets.find((t) => t.tweet_id === tweet.tweet_id)
+          if (item) item.ai_summary = summary
+        })
+      } catch (error: any) {
+        if (error?.name === 'RateLimitedError') {
+          setStore('isSummarizing', false)
+          alert('Your AI provider is rate limiting requests. Try again later.')
+          return
+        }
+        if (error?.message === 'missing-api-key') {
+          setStore('isSummarizing', false)
+          location.hash = '#/settings'
+          return
+        }
+        console.error(`Error summarizing tweet ${tweet.tweet_id}:`, error)
+      }
+
+      processed += 1
+      await sleep(400)
+    }
+  }
+
+  setStore('isSummarizing', false)
 }

@@ -119,6 +119,92 @@ async function classifyOpenAI(
   return normalize(answer, folders)
 }
 
+// ---------------------------------------------------------------------------
+// Summarization — a short one-line gist, persisted onto the tweet and written
+// into note frontmatter by the Obsidian exporters.
+// ---------------------------------------------------------------------------
+
+function buildSummaryPrompt(text: string): string {
+  return [
+    'Summarize the following tweet in one concise sentence (max 30 words).',
+    'Capture the core point. Respond with ONLY the summary, no quotes or preamble.',
+    '',
+    `Tweet: ${text.slice(0, 4000)}`,
+  ].join('\n')
+}
+
+function cleanSummary(s: string): string {
+  return (s || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/^["'“”]+|["'“”]+$/g, '')
+    .trim()
+}
+
+async function summarizeAnthropic(
+  text: string,
+  settings: AISettings,
+): Promise<string> {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': settings.apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: settings.model,
+      max_tokens: 120,
+      messages: [{ role: 'user', content: buildSummaryPrompt(text) }],
+    }),
+  })
+  if (res.status === 429) throw new RateLimitedError()
+  if (!res.ok) throw new Error(`Anthropic API error ${res.status}`)
+  const json = await res.json()
+  return cleanSummary(json?.content?.[0]?.text || '')
+}
+
+async function summarizeOpenAI(
+  text: string,
+  settings: AISettings,
+): Promise<string> {
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      authorization: `Bearer ${settings.apiKey}`,
+    },
+    body: JSON.stringify({
+      model: settings.model,
+      max_tokens: 120,
+      messages: [{ role: 'user', content: buildSummaryPrompt(text) }],
+    }),
+  })
+  if (res.status === 429) throw new RateLimitedError()
+  if (!res.ok) throw new Error(`OpenAI API error ${res.status}`)
+  const json = await res.json()
+  return cleanSummary(json?.choices?.[0]?.message?.content || '')
+}
+
+/**
+ * Produce a one-line summary of a tweet. Returns '' if the model gives nothing.
+ * Throws RateLimitedError on 429, or Error('missing-api-key') with no key.
+ */
+export async function summarizeTweet(params: {
+  text: string
+  settings: AISettings
+}): Promise<string> {
+  const { text, settings } = params
+  if (!settings.apiKey) {
+    throw new Error('missing-api-key')
+  }
+  if (settings.provider === 'openai') {
+    return summarizeOpenAI(text, settings)
+  }
+  return summarizeAnthropic(text, settings)
+}
+
 export class RateLimitedError extends Error {
   constructor() {
     super('AI provider rate limited')

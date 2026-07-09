@@ -52,6 +52,7 @@ export const defaultState = () => ({
   // when downloading media, store the ids of the tweets that need to be downloaded and cancel them if necessary
   downloadedIds: new Array<number>(),
   isTagging: false,
+  isSummarizing: false,
   hasShownAIModal: !!localStorage.getItem('hasShownAIModal'),
   hasShowUpgradeModal: !!localStorage.getItem('hasShowUpgradeModal'),
 })
