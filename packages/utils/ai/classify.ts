@@ -124,10 +124,17 @@ async function classifyOpenAI(
 // into note frontmatter by the Obsidian exporters.
 // ---------------------------------------------------------------------------
 
+export interface TweetSummary {
+  summary: string
+  keywords: string[]
+}
+
 function buildSummaryPrompt(text: string): string {
   return [
-    'Summarize the following tweet in one concise sentence (max 30 words).',
-    'Capture the core point. Respond with ONLY the summary, no quotes or preamble.',
+    'Summarize the following tweet and extract keyword tags.',
+    'Respond with ONLY a JSON object, no code fence, of the form:',
+    '{"summary": "one concise sentence, max 30 words", "keywords": ["tag1", "tag2"]}',
+    'Give 3-5 lowercase keyword tags (single words or short phrases).',
     '',
     `Tweet: ${text.slice(0, 4000)}`,
   ].join('\n')
@@ -141,10 +148,56 @@ function cleanSummary(s: string): string {
     .trim()
 }
 
+/** Normalize one keyword into an Obsidian-safe tag token. */
+function tagifyKeyword(s: string): string {
+  return (s || '')
+    .toLowerCase()
+    .replace(/[\\/:*?"<>|#^[\]]/g, ' ')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/^#+/, '')
+    .slice(0, 40)
+}
+
+/**
+ * Parse the model's summary+keywords response. Tolerates code fences and
+ * non-JSON fallbacks (whole text becomes the summary). Exported for testing.
+ */
+export function parseSummaryResponse(raw: string): TweetSummary {
+  const stripped = (raw || '')
+    .replace(/^\s*```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/i, '')
+    .trim()
+
+  let summary = ''
+  let keywords: string[] = []
+  try {
+    const obj = JSON.parse(stripped)
+    summary = cleanSummary(String(obj?.summary ?? ''))
+    if (Array.isArray(obj?.keywords)) {
+      keywords = obj.keywords.map((k: unknown) => String(k))
+    }
+  } catch {
+    // Not JSON — treat the whole thing as the summary.
+    summary = cleanSummary(stripped)
+  }
+
+  const seen = new Set<string>()
+  const cleanKeywords: string[] = []
+  for (const k of keywords) {
+    const tag = tagifyKeyword(k)
+    if (tag && !seen.has(tag)) {
+      seen.add(tag)
+      cleanKeywords.push(tag)
+    }
+  }
+  return { summary, keywords: cleanKeywords.slice(0, 6) }
+}
+
 async function summarizeAnthropic(
   text: string,
   settings: AISettings,
-): Promise<string> {
+): Promise<TweetSummary> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -155,20 +208,20 @@ async function summarizeAnthropic(
     },
     body: JSON.stringify({
       model: settings.model,
-      max_tokens: 120,
+      max_tokens: 200,
       messages: [{ role: 'user', content: buildSummaryPrompt(text) }],
     }),
   })
   if (res.status === 429) throw new RateLimitedError()
   if (!res.ok) throw new Error(`Anthropic API error ${res.status}`)
   const json = await res.json()
-  return cleanSummary(json?.content?.[0]?.text || '')
+  return parseSummaryResponse(json?.content?.[0]?.text || '')
 }
 
 async function summarizeOpenAI(
   text: string,
   settings: AISettings,
-): Promise<string> {
+): Promise<TweetSummary> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -177,24 +230,24 @@ async function summarizeOpenAI(
     },
     body: JSON.stringify({
       model: settings.model,
-      max_tokens: 120,
+      max_tokens: 200,
       messages: [{ role: 'user', content: buildSummaryPrompt(text) }],
     }),
   })
   if (res.status === 429) throw new RateLimitedError()
   if (!res.ok) throw new Error(`OpenAI API error ${res.status}`)
   const json = await res.json()
-  return cleanSummary(json?.choices?.[0]?.message?.content || '')
+  return parseSummaryResponse(json?.choices?.[0]?.message?.content || '')
 }
 
 /**
- * Produce a one-line summary of a tweet. Returns '' if the model gives nothing.
- * Throws RateLimitedError on 429, or Error('missing-api-key') with no key.
+ * Produce a one-line summary plus keyword tags for a tweet. Empty fields if the
+ * model gives nothing. Throws RateLimitedError on 429, or Error('missing-api-key').
  */
 export async function summarizeTweet(params: {
   text: string
   settings: AISettings
-}): Promise<string> {
+}): Promise<TweetSummary> {
   const { text, settings } = params
   if (!settings.apiKey) {
     throw new Error('missing-api-key')

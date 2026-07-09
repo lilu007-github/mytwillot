@@ -650,14 +650,18 @@ export async function smartSummarize() {
           ? tweet.full_text + '\n' + tweet.quoted_tweet.full_text
           : tweet.full_text
 
-        const summary = await summarizeTweet({ text, settings })
+        const { summary, keywords } = await summarizeTweet({ text, settings })
         // Persist even '' so we don't retry tweets the model returned nothing for.
         tweet.ai_summary = summary
+        tweet.ai_tags = keywords
         await upsertRecords([tweet], true)
         // Reflect into the live list so the UI can show it immediately.
         mutateStore((state) => {
           const item = state.tweets.find((t) => t.tweet_id === tweet.tweet_id)
-          if (item) item.ai_summary = summary
+          if (item) {
+            item.ai_summary = summary
+            item.ai_tags = keywords
+          }
         })
       } catch (error: any) {
         if (error?.name === 'RateLimitedError') {

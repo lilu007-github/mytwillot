@@ -107,7 +107,7 @@ export const Home = () => {
             >
               <IconSparkles />
               <span>
-                {store.isSummarizing ? 'Summarizing…' : 'AI Summarize'}
+                {store.isSummarizing ? 'Summarizing…' : 'AI Summarize & Tag'}
               </span>
             </button>
           </div>

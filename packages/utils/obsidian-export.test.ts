@@ -40,6 +40,18 @@ describe('obsidianNote', () => {
     expect(content).toContain('> [!summary] Building a startup is difficult.')
   })
 
+  it('merges ai_tags into tags frontmatter, deduped', () => {
+    const { content } = obsidianNote({
+      screen_name: 'paulg',
+      tweet_id: '1',
+      full_text: 'hi',
+      tags: ['startups'],
+      ai_tags: ['startups', 'essays', 'ycombinator'],
+    })
+    const line = content.split('\n').find((l) => l.startsWith('tags:'))!
+    expect(line).toBe('tags: [startups, essays, ycombinator]')
+  })
+
   it('omits summary when ai_summary is absent or empty', () => {
     const { content } = obsidianNote({
       screen_name: 'x',
