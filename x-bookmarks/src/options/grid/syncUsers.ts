@@ -7,7 +7,8 @@ import {
   getInstructions,
   getAllInstructionDetails,
 } from 'utils/api/twitter-res-utils'
-import { StoredUser, getUserId, upsertUsers } from 'utils/db/users'
+import { StoredUser, upsertUsers } from 'utils/db/users'
+import { timelineUserToStoredUser } from 'utils/api/user-parse'
 import { getRateLimitInfo } from 'utils/api/twitter-base'
 import { FetchError } from 'utils/xfetch'
 
@@ -74,44 +75,11 @@ export async function syncUsers(
         break
       }
 
+      const syncedAt = Math.floor(Date.now() / 1000)
       const docs: StoredUser[] = timelineUsers
-        .map((item) => {
-          try {
-            const user = item.user_results?.result
-            const legacy = user?.legacy
-            if (!legacy) return null
-
-            /**
-             * X moved name / screen_name / created_at out of `legacy` into a
-             * new `core` object, and the avatar into `avatar.image_url`.
-             * Older responses still use `legacy`, so read core first and fall
-             * back to legacy to support both shapes.
-             */
-            const core = user.core || {}
-            return {
-              id: getUserId(uid, storedRelationship, user.rest_id),
-              rest_id: user.rest_id,
-              owner_id: uid,
-              relationship: storedRelationship,
-              name: core.name ?? legacy.name ?? '',
-              screen_name: core.screen_name ?? legacy.screen_name ?? '',
-              profile_image_url_https:
-                user.avatar?.image_url ?? legacy.profile_image_url_https ?? '',
-              profile_banner_url: legacy.profile_banner_url,
-              description: legacy.description || '',
-              followers_count: legacy.followers_count,
-              friends_count: legacy.friends_count,
-              statuses_count: legacy.statuses_count,
-              is_blue_verified: user.is_blue_verified || false,
-              location: legacy.location || '',
-              created_at: core.created_at ?? legacy.created_at ?? '',
-              synced_at: Math.floor(Date.now() / 1000),
-            } as StoredUser
-          } catch (err) {
-            console.error('Failed to parse user', err)
-            return null
-          }
-        })
+        .map((item) =>
+          timelineUserToStoredUser(item, uid, storedRelationship, syncedAt),
+        )
         .filter((u): u is StoredUser => u !== null)
 
       if (docs.length > 0) {

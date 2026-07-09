@@ -28,7 +28,6 @@ export const defaultState = () => ({
   tweets: new Array<Tweet>(),
   selectedTweet: -1,
   topUsers: new Array<any>(),
-  folders: new Array<{ name: string; count: number }>(),
   history: new Array<{ date: string; count: number }>(DAYS).fill({
     date: '',
     count: 0,

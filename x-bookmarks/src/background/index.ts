@@ -14,7 +14,8 @@ import {
 } from 'utils/api/twitter-res-utils'
 import { cancelCurrentSync, startFullSync } from 'utils/sync-engine'
 import { upsertAccountEntry } from 'utils/account-manager'
-import { getUserId, type StoredUser, upsertUsers } from 'utils/db/users'
+import { type StoredUser, upsertUsers } from 'utils/db/users'
+import { timelineUserToStoredUser } from 'utils/api/user-parse'
 import { getCurrentUserId } from 'utils/storage'
 import { parseTimelineToRecords } from 'utils/api/timeline-parse'
 import { upsertCategoryRecords } from 'utils/db/tweets'
@@ -173,34 +174,9 @@ async function ingestCapturedUserList(url: string, json: unknown) {
   const now = Math.floor(Date.now() / 1000)
   const docs: StoredUser[] = userEntries
     .filter((item: any) => item.itemType === 'TimelineUser')
-    .map((item: TimelineUser) => {
-      const user = item.user_results?.result
-      const legacy = user?.legacy
-      if (!user?.rest_id || !legacy) {
-        return null
-      }
-
-      const core = user.core || {}
-      return {
-        id: getUserId(ownerId, relationship, user.rest_id),
-        rest_id: user.rest_id,
-        owner_id: ownerId,
-        relationship,
-        name: core.name ?? legacy.name ?? '',
-        screen_name: core.screen_name ?? legacy.screen_name ?? '',
-        profile_image_url_https:
-          user.avatar?.image_url ?? legacy.profile_image_url_https ?? '',
-        profile_banner_url: legacy.profile_banner_url,
-        description: legacy.description || '',
-        followers_count: legacy.followers_count,
-        friends_count: legacy.friends_count,
-        statuses_count: legacy.statuses_count,
-        is_blue_verified: user.is_blue_verified || false,
-        location: legacy.location || '',
-        created_at: core.created_at ?? legacy.created_at ?? '',
-        synced_at: now,
-      } as StoredUser
-    })
+    .map((item: TimelineUser) =>
+      timelineUserToStoredUser(item, ownerId, relationship, now),
+    )
     .filter((user): user is StoredUser => user !== null)
 
   if (docs.length === 0) {

@@ -1,7 +1,6 @@
 import { createMemo, createSignal, For, onMount, Show } from 'solid-js'
 import { useNavigate } from '@solidjs/router'
 
-import { type Folder } from 'utils/types'
 import dataStore from './store'
 import {
   folderState,
@@ -11,13 +10,12 @@ import {
   refreshFolderCounts,
   setActiveFolder,
 } from '../stores/folders'
+import {
+  buildFolderTree,
+  rolledCount as rollCount,
+  type FolderTreeNode as TreeNode,
+} from '../libs/folder-tree'
 import { IconBookmark, IconFolder, IconFolders } from '../components/Icons'
-
-interface TreeNode {
-  folder: Folder
-  depth: number
-  children: TreeNode[]
-}
 
 /**
  * Collections landing page: a card grid of every bookmark folder (collection)
@@ -38,32 +36,10 @@ export default function Collections() {
 
   // Roll a folder's own count up with all of its descendants' counts so a
   // parent collection reflects everything filed under it.
-  const rolledCount = (name: string): number => {
-    const counts = folderState.folderCounts
-    let total = counts[name] ?? 0
-    for (const f of folderState.folders) {
-      if (f.parent_id === name) total += rolledCount(f.name)
-    }
-    return total
-  }
+  const rolledCount = (name: string): number =>
+    rollCount(name, folderState.folders, folderState.folderCounts)
 
-  const tree = createMemo<TreeNode[]>(() => {
-    const byParent = new Map<string, Folder[]>()
-    for (const f of folderState.folders) {
-      const key = f.parent_id || '__root__'
-      if (!byParent.has(key)) byParent.set(key, [])
-      byParent.get(key)!.push(f)
-    }
-    const build = (parentKey: string, depth: number): TreeNode[] =>
-      (byParent.get(parentKey) || [])
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map((folder) => ({
-          folder,
-          depth,
-          children: build(folder.name, depth + 1),
-        }))
-    return build('__root__', 0)
-  })
+  const tree = createMemo<TreeNode[]>(() => buildFolderTree(folderState.folders))
 
   const openFolder = (name: string) => {
     // Pre-set so the filter applies instantly; Layout also reads ?folder=.

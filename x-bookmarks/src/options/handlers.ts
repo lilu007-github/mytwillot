@@ -54,6 +54,24 @@ import { classifyTweet, summarizeTweet, getAISettings } from 'utils/ai/classify'
 // Wrap the sleep function
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+/**
+ * Run an AI call, waiting out a single rate-limit hit before giving up.
+ * A transient 429 shouldn't abort a whole batch run; a second one in a row
+ * propagates so the caller can stop cleanly.
+ */
+async function withRateLimitRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn()
+  } catch (error: any) {
+    if (error?.name !== 'RateLimitedError') {
+      throw error
+    }
+    console.warn('AI provider rate limited; retrying once in 30s')
+    await sleep(30_000)
+    return await fn()
+  }
+}
+
 const BATCH_SIZE = 20 // 每20个请求为一个等级
 
 async function query(
@@ -492,23 +510,15 @@ export async function removeBookmark(tweetId: string) {
     await deleteBookmark(tweetId)
     await deleteRecord(tweetId)
     mutateStore((state) => {
-      const tweet = state.tweets.find((t) => t.tweet_id === tweetId)
-      if (!tweet) {
+      const index = state.tweets.findIndex((t) => t.tweet_id === tweetId)
+      if (index === -1) {
         return
       }
-      const folder = tweet.folder
-      if (folder) {
-        const folderItem = state.folders.find((f) => f.name === folder)
-        if (folderItem) {
-          folderItem.count -= 1
-        }
-      }
-      state.tweets.splice(
-        state.tweets.findIndex((t) => t.tweet_id === tweetId),
-        1,
-      )
+      state.tweets.splice(index, 1)
       state.totalCount.total -= 1
     })
+    // Folder counts live in folderState; recompute from the DB.
+    await refreshFolderCounts()
   } catch (e) {
     console.error('Failed to delete bookmark', e)
   }
@@ -580,7 +590,9 @@ export async function smartTagging() {
           ? tweet.full_text + '\n' + tweet.quoted_tweet.full_text
           : tweet.full_text
 
-        const folder = await classifyTweet({ text, folders, settings })
+        const folder = await withRateLimitRetry(() =>
+          classifyTweet({ text, folders, settings }),
+        )
         // Persist even when '' so we don't re-classify tweets that fit nowhere.
         tweet.folder = folder
         await upsertRecords([tweet], true)
@@ -673,7 +685,9 @@ export async function smartSummarize() {
           ? tweet.full_text + '\n' + tweet.quoted_tweet.full_text
           : tweet.full_text
 
-        const { summary, keywords } = await summarizeTweet({ text, settings })
+        const { summary, keywords } = await withRateLimitRetry(() =>
+          summarizeTweet({ text, settings }),
+        )
         // Persist even '' so we don't retry tweets the model returned nothing for.
         tweet.ai_summary = summary
         tweet.ai_tags = keywords

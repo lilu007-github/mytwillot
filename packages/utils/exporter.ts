@@ -90,7 +90,12 @@ export async function exportData(
         return
     }
     saveFile(filename, content, prependBOM)
-  } catch (err) {}
+  } catch (err) {
+    // Surface the failure — a silent catch here means the user clicks
+    // "Export" and nothing happens with zero feedback.
+    console.error(`Export (${format}) failed:`, err)
+    alert(`Export failed: ${err instanceof Error ? err.message : err}`)
+  }
 }
 
 /** Save a Blob to disk (binary counterpart to saveFile). */
@@ -211,15 +216,29 @@ export function obsidianNote(row: DataType): { path: string; content: string } {
   }
 }
 
+/**
+ * Return a unique variant of `path` within `used`, appending -1, -2… before
+ * `.md` until it no longer collides. Adds the result to `used`.
+ * Single source of truth for note-path de-duplication across the zip export,
+ * vault direct-write, and Obsidian REST push — keep them in lockstep.
+ */
+export function uniqueNotePath(path: string, used: Set<string>): string {
+  let candidate = path
+  let n = 0
+  while (used.has(candidate)) {
+    n++
+    candidate = path.replace(/\.md$/, `-${n}.md`)
+  }
+  used.add(candidate)
+  return candidate
+}
+
 export async function obsidianVaultZipBlob(data: DataType[]): Promise<Blob> {
   const enc = new TextEncoder()
-  const seen = new Map<string, number>()
+  const used = new Set<string>()
   const entries = data.map((row) => {
     const note = obsidianNote(row)
-    let path = note.path
-    const n = seen.get(path) ?? 0
-    seen.set(path, n + 1)
-    if (n > 0) path = path.replace(/\.md$/, `-${n}.md`)
+    const path = uniqueNotePath(note.path, used)
     return { name: path, data: enc.encode(note.content) }
   })
   return createZip(entries)
