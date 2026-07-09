@@ -106,6 +106,51 @@ export async function updateUserFolder(
   })
 }
 
+/** All users for a relationship (no pagination) — used by the Circles view. */
+export async function getUsersByRelationship(
+  relationship: 'follower' | 'following',
+  ownerId?: string,
+): Promise<StoredUser[]> {
+  return findUsers(relationship, '', Number.MAX_SAFE_INTEGER, 0, ownerId)
+}
+
+/**
+ * Follow edges [source, target] passively captured into the users table,
+ * restricted to a given id set (typically the people you follow). A row
+ * {owner_id: A, relationship: 'following', rest_id: B} means "A follows B",
+ * captured whenever you browsed A's Following tab on x.com. One full-store
+ * scan; the table also holds your own follower/following rows which are simply
+ * filtered out unless both endpoints are in `ids`.
+ */
+export async function getFollowEdgesAmong(
+  ids: Set<string>,
+): Promise<Array<[string, string]>> {
+  const db = await openDb(DB_NAME, DB_VERSION)
+  const { objectStore } = getObjectStore(db, USERS_TABLE_NAME)
+
+  return new Promise((resolve, reject) => {
+    const edges: Array<[string, string]> = []
+    const request = objectStore.openCursor()
+    request.onsuccess = (event) => {
+      const cursor = (event.target as IDBRequest).result
+      if (!cursor) {
+        resolve(edges)
+        return
+      }
+      const v = cursor.value as StoredUser
+      if (
+        v.relationship === 'following' &&
+        ids.has(v.owner_id) &&
+        ids.has(v.rest_id)
+      ) {
+        edges.push([v.owner_id, v.rest_id])
+      }
+      cursor.continue()
+    }
+    request.onerror = () => reject(new Error('Failed to read follow edges'))
+  })
+}
+
 export async function findUsers(
   relationship: 'follower' | 'following',
   keyword = '',
