@@ -16,7 +16,11 @@ export function getPostId(user_id: string, tweet_id: string) {
     throw new Error('Invalid user_id or tweet_id')
   }
 
-  return tweet_id.includes(user_id) ? tweet_id : user_id + '_' + tweet_id
+  // startsWith (not includes): a numeric tweet_id can contain user_id as a
+  // substring, which would skip the owner prefix and mis-scope the key.
+  return tweet_id.startsWith(user_id + '_')
+    ? tweet_id
+    : user_id + '_' + tweet_id
 }
 
 export async function upsertRecords(
