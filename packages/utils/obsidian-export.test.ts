@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { obsidianNote } from './exporter'
 import { createZipBytes } from './zip'
+import { buildObsidianUri } from './obsidian-rest'
 
 describe('obsidianNote', () => {
   it('builds frontmatter, wikilinks, thread quotes and file path', () => {
@@ -36,6 +37,31 @@ describe('obsidianNote', () => {
     })
     expect(path.startsWith('Unsorted/')).toBe(true)
     expect(path).not.toContain('a/b')
+  })
+})
+
+describe('buildObsidianUri', () => {
+  it('encodes vault, file (no .md) and content', () => {
+    const uri = buildObsidianUri(
+      { screen_name: 'paulg', tweet_id: '5', full_text: 'hi', folder: 'Reading' },
+      'MyVault',
+    )
+    expect(uri.startsWith('obsidian://new?')).toBe(true)
+    const params = new URLSearchParams(uri.slice('obsidian://new?'.length))
+    expect(params.get('vault')).toBe('MyVault')
+    expect(params.get('file')).toBe('Reading/paulg-5')
+    expect(params.get('content')).toContain('hi')
+  })
+
+  it('caps overly long content', () => {
+    const uri = buildObsidianUri(
+      { screen_name: 'a', tweet_id: '1', full_text: 'x'.repeat(9000) },
+      '',
+    )
+    const params = new URLSearchParams(uri.slice('obsidian://new?'.length))
+    expect(params.has('vault')).toBe(false)
+    expect(params.get('content')!.length).toBeLessThan(6100)
+    expect(params.get('content')).toContain('truncated')
   })
 })
 

@@ -7,6 +7,7 @@ import { IconBookmark, IconExpand, IconQuote } from './Icons'
 import FolderSelect from './FolderSelect'
 import TagSelect from './TagSelect'
 import { removeBookmark } from '../options/handlers'
+import { getObsidianSettings, openInObsidian } from 'utils/obsidian-rest'
 import dataStore from '../options/store'
 
 interface TweetListProps {
@@ -23,6 +24,10 @@ interface TweetListProps {
  */
 export default function TweetList(props: TweetListProps) {
   const [, setStore] = dataStore
+  const sendToObsidian = async (tweet: Tweet) => {
+    const settings = await getObsidianSettings()
+    openInObsidian(tweet, settings.vault)
+  }
   return (
     <For each={props.tweets}>
       {(tweet, index) => (
@@ -64,6 +69,26 @@ export default function TweetList(props: TweetListProps) {
                     }}
                   >
                     <IconExpand />
+                  </span>
+                  <span
+                    title="Open in Obsidian"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      sendToObsidian(tweet)
+                    }}
+                  >
+                    <svg
+                      class="h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M4 3h9l7 7v11a0 0 0 0 1 0 0H4a0 0 0 0 1 0 0V3z" />
+                      <path d="M13 3v7h7" />
+                    </svg>
                   </span>
                   <span>
                     <TagSelect tweet={tweet} />
