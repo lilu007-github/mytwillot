@@ -144,8 +144,20 @@ function meetsCriteria(
   category = '',
   folder = '',
   user_id = '',
+  dataType = 'bookmarks',
+  tag = '',
 ): boolean {
   if (tweet.owner_id !== user_id) {
+    return false
+  }
+
+  // Data type (bookmarks/likes/posts/replies/media). Legacy records without a
+  // category_name are treated as bookmarks. An empty dataType matches all.
+  if (dataType && (tweet.category_name || 'bookmarks') !== dataType) {
+    return false
+  }
+
+  if (tag && !(Array.isArray(tweet.tags) && tweet.tags.includes(tag))) {
     return false
   }
 
@@ -188,6 +200,8 @@ export async function findRecords(
   folder = '',
   lastId = '',
   pageSize = 100,
+  dataType = 'bookmarks',
+  tag = '',
 ): Promise<Tweet[]> {
   await requireActiveAccount()
   const db = await openDb()
@@ -215,7 +229,15 @@ export async function findRecords(
       if (cursor) {
         const tweet = cursor.value as Tweet
         if (isStartLooking) {
-          const met = meetsCriteria(tweet, options, category, folder, user_id)
+          const met = meetsCriteria(
+            tweet,
+            options,
+            category,
+            folder,
+            user_id,
+            dataType,
+            tag,
+          )
           if (met) {
             recordsFetched++
             if (recordsFetched <= pageSize) {

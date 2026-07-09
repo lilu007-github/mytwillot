@@ -60,10 +60,20 @@ async function query(
   lastId = '',
   limit = 100,
   append = false,
+  dataType = 'bookmarks',
+  tag = '',
 ) {
   const [store, setStore] = dataStore
   const start = new Date().getTime()
-  const tweets = await findRecords(keyword, category, folder, lastId, limit)
+  const tweets = await findRecords(
+    keyword,
+    category,
+    folder,
+    lastId,
+    limit,
+    dataType,
+    tag,
+  )
   setStore('hasMore', tweets.length === limit)
   if (append) {
     if (tweets.length > 0) {
@@ -88,6 +98,8 @@ export async function queryByCondition(append = false) {
     append ? tweets[tweets.length - 1]?.tweet_id || '' : '',
     store.pageSize,
     append,
+    store.dataType,
+    store.tag,
   )
 }
 
