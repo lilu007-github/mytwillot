@@ -3,10 +3,11 @@ import { A } from '@solidjs/router'
 
 import { Content } from './Tweet'
 import { Host, type Tweet } from 'utils/types'
-import { IconBookmark, IconQuote } from './Icons'
+import { IconBookmark, IconExpand, IconQuote } from './Icons'
 import FolderSelect from './FolderSelect'
 import TagSelect from './TagSelect'
 import { removeBookmark } from '../options/handlers'
+import dataStore from '../options/store'
 
 interface TweetListProps {
   tweets: Tweet[]
@@ -21,9 +22,10 @@ interface TweetListProps {
  * and the per-category (likes/posts/replies/media) views.
  */
 export default function TweetList(props: TweetListProps) {
+  const [, setStore] = dataStore
   return (
     <For each={props.tweets}>
-      {(tweet) => (
+      {(tweet, index) => (
         <div class="rounded-md p-2 hover:bg-[#121212] hover:bg-opacity-5">
           <div class="flex flex-shrink-0 pb-0">
             <div class="flex w-full items-start">
@@ -54,6 +56,15 @@ export default function TweetList(props: TweetListProps) {
               </p>
               <Show when={!props.isSidePanel}>
                 <div class="flex items-center justify-end gap-4 *:cursor-pointer">
+                  <span
+                    title="Read in Zen mode"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setStore('selectedTweet', index())
+                    }}
+                  >
+                    <IconExpand />
+                  </span>
                   <span>
                     <TagSelect tweet={tweet} />
                   </span>

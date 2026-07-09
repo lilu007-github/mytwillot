@@ -1,4 +1,4 @@
-import { batch, createEffect, onMount, Show } from 'solid-js'
+import { batch, createEffect, For, onMount, Show } from 'solid-js'
 
 import dataStore from './store'
 import { openPage } from 'utils/dom'
@@ -41,6 +41,29 @@ export const Home = () => {
         <div class="mb-4 px-3 lg:px-0">
           <Contribution />
         </div>
+
+        <Show when={store.totalCount}>
+          <div class="mb-4 grid grid-cols-4 gap-2 px-3 text-center lg:grid-cols-7 lg:px-0">
+            <For
+              each={[
+                { label: 'Total', value: store.totalCount!.total },
+                { label: 'Unsorted', value: store.totalCount!.unsorted },
+                { label: 'Images', value: store.totalCount!.image },
+                { label: 'Videos', value: store.totalCount!.video },
+                { label: 'GIFs', value: store.totalCount!.gif },
+                { label: 'Links', value: store.totalCount!.link },
+                { label: 'Threads', value: store.totalCount!.long_text },
+              ]}
+            >
+              {(stat) => (
+                <div class="rounded-lg bg-gray-50 py-2 dark:bg-gray-800">
+                  <div class="text-lg font-semibold">{stat.value}</div>
+                  <div class="text-xs text-gray-500">{stat.label}</div>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
 
         <div class="relative mb-6 rounded-md py-4">
           <h3 class="text-lg font-medium">
