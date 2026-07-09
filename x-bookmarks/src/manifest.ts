@@ -9,6 +9,11 @@ const host_permissions = [
   // Client-side AI classification calls the user's chosen LLM provider directly.
   'https://api.anthropic.com/*',
   'https://api.openai.com/*',
+  // Obsidian Local REST API (localhost server exposed by the plugin).
+  'http://127.0.0.1/*',
+  'https://127.0.0.1/*',
+  'http://localhost/*',
+  'https://localhost/*',
 ]
 // cloudflare workers
 if (isDev) {
