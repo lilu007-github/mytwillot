@@ -145,18 +145,24 @@ export function obsidianNote(row: DataType): { path: string; content: string } {
   const folder = sanitizeFilePart(row.folder || '') || 'Unsorted'
   const tags: string[] = Array.isArray(row.tags) ? row.tags : []
 
+  const summary = typeof row.ai_summary === 'string' ? row.ai_summary.trim() : ''
+
   const fm: string[] = ['---', `author: ${yamlValue(who)}`]
   if (handle) fm.push(`handle: ${yamlValue(handle)}`)
   if (url) fm.push(`url: ${yamlValue(url)}`)
   if (isoDate) fm.push(`date: ${isoDate}`)
   fm.push('source: X')
   fm.push(`folder: ${yamlValue(folder)}`)
+  if (summary) fm.push(`summary: ${yamlValue(summary)}`)
   if (tags.length) {
     fm.push(`tags: [${tags.map((t) => yamlValue(sanitizeFilePart(t))).join(', ')}]`)
   }
   fm.push('---')
 
   const body: string[] = [`# ${who}${handle ? ` [[@${handle}]]` : ''}`, '']
+  if (summary) {
+    body.push(`> [!summary] ${summary}`, '')
+  }
   body.push(String(row.full_text ?? ''))
 
   const convs = Array.isArray(row.conversations) ? row.conversations : []

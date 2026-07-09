@@ -29,6 +29,28 @@ describe('obsidianNote', () => {
     expect(content).toContain('[View on X](https://x.com/paulg/status/123)')
   })
 
+  it('writes ai_summary into frontmatter and a callout', () => {
+    const { content } = obsidianNote({
+      screen_name: 'paulg',
+      tweet_id: '123',
+      full_text: 'Startups are hard.',
+      ai_summary: 'Building a startup is difficult.',
+    })
+    expect(content).toContain('summary: Building a startup is difficult.')
+    expect(content).toContain('> [!summary] Building a startup is difficult.')
+  })
+
+  it('omits summary when ai_summary is absent or empty', () => {
+    const { content } = obsidianNote({
+      screen_name: 'x',
+      tweet_id: '1',
+      full_text: 'hi',
+      ai_summary: '',
+    })
+    expect(content).not.toContain('summary:')
+    expect(content).not.toContain('[!summary]')
+  })
+
   it('falls back to Unsorted folder and sanitizes illegal chars', () => {
     const { path } = obsidianNote({
       screen_name: 'a/b',
