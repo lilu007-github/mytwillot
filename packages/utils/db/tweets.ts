@@ -325,8 +325,11 @@ export async function deleteRecord(id: string): Promise<Tweet | undefined> {
 }
 
 /**
- * Get all tweet_ids for the current user's records.
- * Used to compare local state against server state during full sync.
+ * Get all BOOKMARK tweet_ids for the current user's records.
+ * Used to compare local state against the server's bookmark timeline during
+ * full sync. Scoped to category_name 'bookmarks' — likes/posts/replies/media
+ * records must never be classified as "stale bookmarks" and deleted.
+ * (Records without category_name predate the v23 backfill and are bookmarks.)
  */
 export async function getAllTweetIds(): Promise<string[]> {
   const db = await openDb()
@@ -345,7 +348,10 @@ export async function getAllTweetIds(): Promise<string[]> {
     request.onsuccess = (event: Event) => {
       const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
       if (cursor) {
-        ids.push(cursor.value.tweet_id)
+        const record = cursor.value
+        if ((record.category_name ?? 'bookmarks') === 'bookmarks') {
+          ids.push(record.tweet_id)
+        }
         cursor.continue()
       } else {
         resolve(ids)
@@ -362,7 +368,9 @@ export async function getAllTweetIds(): Promise<string[]> {
 }
 
 /**
- * Delete multiple records by their tweet_ids for the current user.
+ * Delete multiple BOOKMARK records by their tweet_ids for the current user.
+ * Keys are rebuilt with the bookmark scheme (`${owner}_${tweet}`), so
+ * category-prefixed records (likes/posts/…) are structurally unreachable here.
  * Used to remove bookmarks that were deleted on the server during sync.
  */
 export async function deleteRecordsByTweetIds(

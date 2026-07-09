@@ -47,7 +47,19 @@ chrome.action.onClicked.addListener(function () {
 })
 
 chrome.runtime.onMessage.addListener(
-  (message: CapturedUserListMessage | CapturedTimelineMessage) => {
+  (
+    message: CapturedUserListMessage | CapturedTimelineMessage,
+    sender: chrome.runtime.MessageSender,
+  ) => {
+    // Captured payloads must come from our content script running in an
+    // x.com tab — not from extension pages or any other context.
+    const isFromXTab = Boolean(
+      sender.tab && (sender.url || '').startsWith('https://x.com/'),
+    )
+    if (!isFromXTab) {
+      return
+    }
+
     if (message?.type === 'TWILLOT_CAPTURED_X_USER_LIST') {
       ingestCapturedUserList(message.url, message.json).catch((err) => {
         chrome.storage.local.set({

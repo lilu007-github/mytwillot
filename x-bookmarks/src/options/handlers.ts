@@ -46,6 +46,7 @@ import {
 
 import dataStore, { mutateStore } from './store'
 import { folderState, refreshFolderCounts } from '~/stores/folders'
+import { resumeSync, updateSyncProgress, finishSync } from 'utils/sync-engine'
 import { getLevel, getLicense, MemberLevel } from 'utils/license'
 import { PRICING_URL } from '~/libs/member'
 import { classifyTweet, summarizeTweet, getAISettings } from 'utils/ai/classify'
@@ -145,13 +146,23 @@ export async function initSync() {
       throw new Error(AuthStatus.AUTH_FAILED)
     }
 
+    const uid = await getCurrentUserId()
+
     if (!lastForceSynced) {
       setStore('isForceSyncing', true)
+      // Mark the per-account SyncState as syncing (preserves an interrupted
+      // run's cursor/progress) so the account indicator reflects the loop.
+      if (uid) {
+        await resumeSync(uid)
+      }
       /**
        * 全量同步时展示最新的 100 条数据
        * 后续更新只更新总数
        */
       for await (const docs of syncAllBookmarks(true)) {
+        if (uid) {
+          await updateSyncProgress(uid, docs.length)
+        }
         /**
          * 已经有最新的数据展示，不对数据进行操作
          */
@@ -191,14 +202,23 @@ export async function initSync() {
     }
 
     setStore('topUsers', reconcile(await getTopUsers(10)))
+    // Sync completed — flip the per-account SyncState back to idle so the
+    // account indicator doesn't stay 'syncing' forever.
+    if (uid) {
+      await finishSync(uid)
+    }
   } catch (err) {
     console.error(err)
+    const uid = await getCurrentUserId()
+    if (uid) {
+      await finishSync(uid, err?.message || 'sync failed')
+    }
     if (
       err.name == FetchError.IdentityError ||
       err.message == AuthStatus.AUTH_FAILED
     ) {
       setStore('isAuthFailed', true)
-      await logout(await getCurrentUserId())
+      await logout(uid)
     } else {
       setStore('isForceSyncTimedout', true)
       setStore('isForceSyncing', false)

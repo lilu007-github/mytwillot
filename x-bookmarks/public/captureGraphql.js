@@ -40,6 +40,8 @@
       lastCapturedOp: operation,
       lastCapturedAt: Date.now(),
     }
+    // Single channel, origin-scoped. The content-script side additionally
+    // verifies event.source === window and event.origin before forwarding.
     window.postMessage(
       {
         source: CAPTURE_SOURCE,
@@ -47,12 +49,7 @@
         url: href,
         json,
       },
-      '*',
-    )
-    document.dispatchEvent(
-      new CustomEvent(CAPTURE_SOURCE, {
-        detail: { operation, url: href, json },
-      }),
+      window.location.origin,
     )
   }
 

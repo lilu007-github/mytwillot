@@ -111,6 +111,58 @@ export async function resumeSync(userId: string): Promise<void> {
 }
 
 /**
+ * Record progress from the actual fetch loop (handlers.ts syncAllBookmarks).
+ * Increments the progress counter and keeps status 'syncing' so the account
+ * indicator reflects real work instead of staying at the initial state.
+ */
+export async function updateSyncProgress(
+  userId: string,
+  added: number,
+): Promise<void> {
+  if (!userId || !added) {
+    return
+  }
+
+  const state = await readSyncState(userId)
+  const updated: SyncState = {
+    ...state,
+    status: 'syncing',
+    owner_id: userId,
+    progress: (state.progress || 0) + added,
+  }
+
+  await chrome.storage.local.set({
+    [syncStateKey(userId)]: updated,
+  })
+}
+
+/**
+ * Mark the sync finished: idle on success, error (with message) on failure.
+ * Must be called by the fetch loop when it ends — otherwise a sync started
+ * via startFullSync/resumeSync stays 'syncing' forever.
+ */
+export async function finishSync(
+  userId: string,
+  errorMessage?: string,
+): Promise<void> {
+  if (!userId) {
+    return
+  }
+
+  const state = await readSyncState(userId)
+  const updated: SyncState = {
+    ...state,
+    owner_id: userId,
+    status: errorMessage ? 'error' : 'idle',
+    error_message: errorMessage,
+  }
+
+  await chrome.storage.local.set({
+    [syncStateKey(userId)]: updated,
+  })
+}
+
+/**
  * Get the current sync state for the active account.
  * Reads from Chrome Storage using the per-account key.
  */
