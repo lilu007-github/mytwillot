@@ -45,6 +45,7 @@ import {
 } from 'utils/storage'
 
 import dataStore, { mutateStore } from './store'
+import { folderState, refreshFolderCounts } from '~/stores/folders'
 import { getLevel, getLicense, MemberLevel } from 'utils/license'
 import { PRICING_URL } from '~/libs/member'
 import { classifyTweet, summarizeTweet, getAISettings } from 'utils/ai/classify'
@@ -512,7 +513,8 @@ export async function smartTagging() {
     return
   }
 
-  const folders = store.folders.map((i) => i.name)
+  // Folders live in folderState (stores/folders), not the legacy global store.
+  const folders = folderState.folders.map((i) => i.name)
   if (folders.length < 3) {
     alert('Please create at least 3 folders to use AI auto organizing')
     return
@@ -564,10 +566,8 @@ export async function smartTagging() {
         await upsertRecords([tweet], true)
         if (folder) {
           mutateStore((state) => {
-            const folderItem = state.folders.find((f) => f.name === folder)
-            if (folderItem && state.totalCount) {
+            if (state.totalCount) {
               state.totalCount.unsorted -= 1
-              folderItem.count += 1
             }
           })
         }
@@ -575,11 +575,13 @@ export async function smartTagging() {
       } catch (error: any) {
         if (error?.name === 'RateLimitedError') {
           setStore('isTagging', false)
+          await refreshFolderCounts()
           alert('Your AI provider is rate limiting requests. Try again later.')
           return
         }
         if (error?.message === 'missing-api-key') {
           setStore('isTagging', false)
+          await refreshFolderCounts()
           location.hash = '#/settings'
           return
         }
@@ -592,6 +594,7 @@ export async function smartTagging() {
   }
 
   setStore('isTagging', false)
+  await refreshFolderCounts()
 }
 
 /**

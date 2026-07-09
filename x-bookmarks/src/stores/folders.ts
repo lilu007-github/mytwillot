@@ -345,28 +345,27 @@ export const removeFolder = async (folder: string) => {
   }
 }
 
-/** @deprecated Use moveEntitiesToFolder instead */
+/** Move a single tweet to a folder and reflect it in the query result set. */
 export const moveTweetToFolder = async (folder: string, tweet: any) => {
   const index = legacyStore.tweets.findIndex(
     (t) => t.tweet_id === tweet.tweet_id,
   )
-  const folderIndex = legacyStore.folders.findIndex((f) => f.name === folder)
-  const oldFolderIndex = tweet.folder
-    ? legacyStore.folders.findIndex((f) => f.name === tweet.folder)
-    : -1
+  const hadFolder = Boolean(tweet.folder)
   await upsertRecords([{ ...unwrap(tweet), folder }], true)
   mutateStore((s) => {
-    s.tweets[index].folder = folder
-    s.folders[folderIndex].count += 1
-    if (oldFolderIndex > -1) {
-      s.folders[oldFolderIndex].count -= 1
-    } else if (s.totalCount) {
+    if (index > -1) {
+      s.tweets[index].folder = folder
+      // Viewing another folder: the tweet no longer belongs in this list.
+      if (legacyStore.folder && folder !== legacyStore.folder) {
+        s.tweets.splice(index, 1)
+      }
+    }
+    if (!hadFolder && s.totalCount) {
       s.totalCount.unsorted -= 1
     }
-    if (legacyStore.folder && folder !== legacyStore.folder) {
-      s.tweets.splice(index, 1)
-    }
   })
+  // Folder counts live in folderState now; recompute from the DB.
+  await refreshFolderCounts()
 }
 
 /** @deprecated Use moveEntitiesToFolder instead */

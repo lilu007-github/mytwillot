@@ -8,7 +8,9 @@ export function getConfigId(user_id: string, name: OptionName) {
     throw new Error('Invalid user_id or name: ' + user_id + ', ' + name)
   }
 
-  return name.includes(user_id) ? name : `${user_id}_${name}`
+  // startsWith (not includes): avoid skipping the owner prefix when the name
+  // happens to contain the user_id as a substring.
+  return name.startsWith(user_id + '_') ? name : `${user_id}_${name}`
 }
 
 // 创建或更新配置项

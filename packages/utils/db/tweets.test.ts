@@ -98,6 +98,21 @@ describe('dbModule', () => {
     })
   })
 
+  describe('getPostId', () => {
+    it('prefixes with owner id', () => {
+      expect(getPostId('123', '456')).toBe('123_456')
+    })
+
+    it('keeps an already-prefixed id unchanged', () => {
+      expect(getPostId('123', '123_456')).toBe('123_456')
+    })
+
+    it('still prefixes when tweet_id merely contains user_id as substring', () => {
+      // Regression: `includes` used to skip the prefix here.
+      expect(getPostId('123', '41234')).toBe('123_41234')
+    })
+  })
+
   describe('addRecords', () => {
     it('should add records to the database', async () => {
       const tweets = TweetGenerator.generateTweets(5)
