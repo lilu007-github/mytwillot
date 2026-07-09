@@ -3,7 +3,7 @@ import { getCurrentUserId } from '../storage'
 import { getConfigId } from './configs'
 import { getPostId } from './tweets'
 
-export const DB_VERSION = 22
+export const DB_VERSION = 23
 
 export const DB_NAME = 'twillot'
 
@@ -19,15 +19,23 @@ export const USERS_TABLE_NAME = 'users'
 
 export const FOLDERS_TABLE_NAME = 'folders'
 
+export const TAGS_TABLE_NAME = 'tags'
+
 export const folderIndexFields: IndexedDbIndexItem[] = [
   { name: 'owner_id', options: { unique: false, multiEntry: false } },
   { name: 'scope', options: { unique: false, multiEntry: false } },
   { name: 'sort_order', options: { unique: false, multiEntry: false } },
+  { name: 'parent_id', options: { unique: false, multiEntry: false } },
   {
     name: 'owner_id_scope',
     keyPath: ['owner_id', 'scope'],
     options: { unique: false, multiEntry: false },
   },
+]
+
+export const tagIndexFields: IndexedDbIndexItem[] = [
+  { name: 'owner_id', options: { unique: false, multiEntry: false } },
+  { name: 'sort_order', options: { unique: false, multiEntry: false } },
 ]
 
 export const userIndexFields: IndexedDbIndexItem[] = [
@@ -38,7 +46,7 @@ export const userIndexFields: IndexedDbIndexItem[] = [
 ]
 
 export const indexFields: IndexedDbIndexItem[] =
-  'full_text,sort_index,screen_name,created_at,owner_id,has_image,has_video,has_link,has_quote,is_long_text,folder'
+  'full_text,sort_index,screen_name,created_at,owner_id,has_image,has_video,has_link,has_quote,is_long_text,folder,category_name'
     .split(',')
     .map((field) => ({
       name: field,
@@ -347,6 +355,7 @@ function upgradeDb(db: IDBDatabase, transaction: IDBTransaction) {
     { name: 'folder', options: { unique: false, multiEntry: false } },
   ])
   createSchema(db, transaction, FOLDERS_TABLE_NAME, 'id', folderIndexFields)
+  createSchema(db, transaction, TAGS_TABLE_NAME, 'id', tagIndexFields)
 
   // Run legacy folder migration after all stores/indexes are created
   migrateToV22(transaction)

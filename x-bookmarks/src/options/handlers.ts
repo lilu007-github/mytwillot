@@ -21,6 +21,7 @@ import {
   findRecords,
   getRencentTweets,
   getTopUsers,
+  backfillCategoryName,
 } from 'utils/db/tweets'
 import { FetchError } from 'utils/xfetch'
 import {
@@ -90,9 +91,31 @@ export async function queryByCondition(append = false) {
   )
 }
 
+/**
+ * One-time backfill (DB v23): tag legacy records lacking category_name as
+ * 'bookmarks'. Guarded by a global storage flag so it only runs once.
+ */
+async function runCategoryBackfill() {
+  const FLAG = 'twillot_category_backfilled_v23'
+  try {
+    const existing = await chrome.storage.local.get(FLAG)
+    if (existing[FLAG]) {
+      return
+    }
+    const updated = await backfillCategoryName()
+    await chrome.storage.local.set({ [FLAG]: Date.now() })
+    if (updated > 0) {
+      console.log(`Backfilled category_name on ${updated} legacy records`)
+    }
+  } catch (err) {
+    console.error('category_name backfill failed', err)
+  }
+}
+
 export async function initSync() {
   const [store, setStore] = dataStore
   try {
+    await runCategoryBackfill()
     /**
      * 可能之前已经同步过数据
      */
@@ -269,6 +292,11 @@ export async function* syncAllBookmarks(forceSync = false) {
           }
         })
         .filter((t) => t && del_ids.includes(t.tweet_id) === false)
+
+      // Tag every bookmark record so it is retrievable by category_name.
+      docs.forEach((t) => {
+        if (t) t.category_name = 'bookmarks'
+      })
 
       // Track server-side tweet IDs during full sync
       if (forceSync) {

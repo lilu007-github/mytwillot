@@ -331,6 +331,51 @@ export async function deleteRecordsByTweetIds(
   })
 }
 
+/**
+ * One-time backfill: tag any existing record that has no `category_name` as
+ * `'bookmarks'`. Runs outside the onupgradeneeded transaction (which must stay
+ * light) and is guarded by a storage flag so it only runs once per user.
+ *
+ * Rationale: IndexedDB indexes skip records whose indexed field is `undefined`,
+ * so legacy bookmarks would not appear when querying by category until backfilled.
+ */
+export async function backfillCategoryName(): Promise<number> {
+  const db = await openDb()
+  const user_id = await getCurrentUserId()
+  if (!user_id) {
+    return 0
+  }
+
+  return new Promise((resolve, reject) => {
+    const { objectStore, transaction } = getObjectStore(
+      db,
+      TWEETS_TABLE_NAME_V2,
+    )
+    const index = objectStore.index('owner_id')
+    const request = index.openCursor(IDBKeyRange.only(user_id))
+    let updated = 0
+
+    request.onsuccess = (event: Event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
+      if (cursor) {
+        const record = cursor.value as Tweet
+        if (!record.category_name) {
+          record.category_name = 'bookmarks'
+          cursor.update(record)
+          updated++
+        }
+        cursor.continue()
+      }
+    }
+
+    transaction.oncomplete = () => resolve(updated)
+    transaction.onerror = (event: Event) =>
+      reject(
+        'Backfill error: ' + (event.target as IDBRequest).error?.toString(),
+      )
+  })
+}
+
 export async function countRecords(
   indexName?: string,
   value?: string,

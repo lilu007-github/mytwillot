@@ -7,6 +7,7 @@ import { Media, TimelineTweet } from './tweet'
 import { TimelineTwitterList } from './list'
 import { TimelineUser } from './user'
 export * from './folder'
+export * from './tag'
 export * from './list'
 export * from './tweet'
 export * from './user'
@@ -52,8 +53,18 @@ export interface Tweet extends TweetQuoted {
   quoted_tweet?: TweetQuoted
   // 不可以属于多个文件夹
   folder?: string
+  // 数据类型：bookmarks / likes / posts / replies / media。
+  // 缺省视为 bookmarks（老数据由 backfillCategoryName 回填）。
+  category_name?: TweetCategory
   conversations: Tweet[]
 }
+
+export type TweetCategory =
+  | 'bookmarks'
+  | 'likes'
+  | 'posts'
+  | 'replies'
+  | 'media'
 
 export interface TweetQuoted {
   tweet_id: string

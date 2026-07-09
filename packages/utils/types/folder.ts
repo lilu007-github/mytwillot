@@ -8,6 +8,11 @@ export interface Folder {
   scope: EntityScope
   sort_order: number
   created_at: number
+  /**
+   * Name of the parent folder (same scope/owner), or null/undefined for a
+   * top-level folder. Nesting is unlimited; cycles are rejected at write time.
+   */
+  parent_id?: string | null
 }
 
 export class DuplicateFolderError extends Error {
