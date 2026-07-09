@@ -211,6 +211,21 @@ describe('dbModule', () => {
       expect(ids).toEqual([])
     })
 
+    it('excludes non-bookmark categories from reconciliation ids', async () => {
+      const bookmarks = TweetGenerator.generateTweets(2)
+      await upsertRecords(bookmarks)
+
+      // A passively-captured like must never be classified as a stale
+      // bookmark and deleted during full-sync reconciliation.
+      const like = TweetGenerator.generateTweet()
+      like.category_name = 'likes'
+      await upsertRecords([like])
+
+      const ids = await getAllTweetIds()
+      expect(ids.length).toBe(2)
+      expect(ids).not.toContain(like.tweet_id)
+    })
+
     it('should only return tweet_ids for the current user', async () => {
       // Insert tweets for user A
       const tweetsA = TweetGenerator.generateTweets(3)

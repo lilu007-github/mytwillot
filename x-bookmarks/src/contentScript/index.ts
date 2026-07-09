@@ -17,21 +17,19 @@ const userId = parseTwidCookie(twidValue)
 detectAndSetActiveAccount(userId)
 
 window.addEventListener('message', (event) => {
+  // Only accept messages posted by our own page-world capture script on this
+  // page: same window (not an iframe) and same origin. Anything else could be
+  // a forged payload from an embedded frame or another script.
+  if (event.source !== window || event.origin !== window.location.origin) {
+    return
+  }
+
   const message = event.data
   if (message?.source !== CAPTURE_SOURCE) {
     return
   }
 
   forwardCaptured(message.operation, message.url, message.json)
-})
-
-document.addEventListener(CAPTURE_SOURCE, (event) => {
-  const detail = (event as CustomEvent).detail
-  if (!detail?.url || !detail?.json) {
-    return
-  }
-
-  forwardCaptured(detail.operation, detail.url, detail.json)
 })
 
 function forwardCaptured(operation: string, url: string, json: unknown) {
