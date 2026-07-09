@@ -5,6 +5,7 @@ import { Home } from '../options/Home'
 import License from '../options/License'
 import Export from '../options/Export'
 import CategoryView from '../options/CategoryView'
+import Collections from '../options/Collections'
 import Gallery from '../options/Gallery'
 import Settings from '../options/Settings'
 import UserGridPage from '../options/grid/UserGridPage'
@@ -17,6 +18,7 @@ export default function getRoot() {
     <HashRouter root={Layout}>
       <Route path="/" component={Home} />
       <Route path="/type/:type" component={CategoryView} />
+      <Route path="/collections" component={Collections} />
       <Route path="/gallery" component={Gallery} />
       <Route path="/users" component={UserGridPage} />
       <Route path="/accounts" component={AccountManagement} />

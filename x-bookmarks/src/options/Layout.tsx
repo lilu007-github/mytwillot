@@ -21,6 +21,7 @@ import { Alert } from '../components/Alert'
 import Notification from '../components/Notification'
 import {
   IconBookmark,
+  IconFolders,
   IconMessage,
   IconMoon,
   IconSun,
@@ -221,6 +222,17 @@ export const Layout = (props) => {
     }
     // Clear active folder filter on navigation
     setActiveFolder(null)
+  })
+
+  // Apply a ?folder= deep-link (used by the Collections page to open a
+  // collection). Runs after the reset effect above so it wins on navigation.
+  // Clearing the param (e.g. clicking "Bookmarks") drops the filter. Note this
+  // tracks only searchParams.folder, so sidebar FolderPanel clicks — which set
+  // activeFolder without touching the URL — are not clobbered.
+  createEffect(() => {
+    const folder = searchParams.folder
+    if (activeScope() !== 'bookmark') return
+    setActiveFolder(folder ? (folder as string) : null)
   })
 
   // Sync folderState.activeFolder → store.folder for bookmark grid query
@@ -444,6 +456,15 @@ export const Layout = (props) => {
                   </li>
                 )}
               </For>
+              <li>
+                <A
+                  class="flex items-center rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  href="/collections"
+                >
+                  <IconFolders cls="h-5 w-5" />
+                  <span class="ms-3 flex-1 whitespace-nowrap">Collections</span>
+                </A>
+              </li>
               <li>
                 <A
                   class="flex items-center rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
