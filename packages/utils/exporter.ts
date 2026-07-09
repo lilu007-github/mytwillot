@@ -1,12 +1,15 @@
 /**
  * Supported formats of exporting.
  */
+import { createZip } from './zip'
+
 export const EXPORT_FORMAT = {
   JSON: 'JSON',
   HTML: 'HTML',
   CSV: 'CSV',
   MARKDOWN: 'Markdown',
   PDF: 'PDF',
+  OBSIDIAN: 'Obsidian',
 } as const
 
 export type ExportFormatType =
@@ -81,9 +84,128 @@ export async function exportData(
         // Rendered client-side via the browser's print-to-PDF.
         printHtml(await htmlExporter(data, translations))
         return
+      case EXPORT_FORMAT.OBSIDIAN:
+        // One Markdown note per tweet, zipped with folder structure.
+        saveBlob(filename, await obsidianVaultZipBlob(data))
+        return
     }
     saveFile(filename, content, prependBOM)
   } catch (err) {}
+}
+
+/** Save a Blob to disk (binary counterpart to saveFile). */
+export function saveBlob(filename: string, blob: Blob) {
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+// ---------------------------------------------------------------------------
+// Obsidian vault export — one Markdown note per tweet, with YAML frontmatter
+// and wikilinks, packaged as a ZIP that mirrors the bookmark folder layout.
+// ---------------------------------------------------------------------------
+
+/** Strip characters illegal in file names / that Obsidian treats specially. */
+function sanitizeFilePart(s: string): string {
+  return String(s ?? '')
+    .replace(/[\\/:*?"<>|#^[\]]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** Quote a YAML scalar when it could be misparsed; keep simple values bare. */
+function yamlValue(s: string): string {
+  const v = String(s ?? '')
+  if (v === '' || /[:#\-?[\]{}&*!|>'"%@`\n]/.test(v)) {
+    return JSON.stringify(v)
+  }
+  return v
+}
+
+function quoteBlock(text: string): string {
+  return String(text ?? '')
+    .split('\n')
+    .map((l) => `> ${l}`)
+    .join('\n')
+}
+
+/** Build a single Obsidian note ({ vault-relative path, content }) for a row. */
+export function obsidianNote(row: DataType): { path: string; content: string } {
+  const handle = row.screen_name || ''
+  const who = row.username || handle || 'Unknown'
+  const tweetId = row.tweet_id || ''
+  const epoch = typeof row.created_at === 'number' ? row.created_at : 0
+  const isoDate = epoch ? new Date(epoch * 1000).toISOString().slice(0, 10) : ''
+  const url =
+    row.url ||
+    (handle && tweetId ? `https://x.com/${handle}/status/${tweetId}` : '')
+  const folder = sanitizeFilePart(row.folder || '') || 'Unsorted'
+  const tags: string[] = Array.isArray(row.tags) ? row.tags : []
+
+  const fm: string[] = ['---', `author: ${yamlValue(who)}`]
+  if (handle) fm.push(`handle: ${yamlValue(handle)}`)
+  if (url) fm.push(`url: ${yamlValue(url)}`)
+  if (isoDate) fm.push(`date: ${isoDate}`)
+  fm.push('source: X')
+  fm.push(`folder: ${yamlValue(folder)}`)
+  if (tags.length) {
+    fm.push(`tags: [${tags.map((t) => yamlValue(sanitizeFilePart(t))).join(', ')}]`)
+  }
+  fm.push('---')
+
+  const body: string[] = [`# ${who}${handle ? ` [[@${handle}]]` : ''}`, '']
+  body.push(String(row.full_text ?? ''))
+
+  const convs = Array.isArray(row.conversations) ? row.conversations : []
+  for (const c of convs) {
+    if (c?.full_text) {
+      body.push('', quoteBlock(c.full_text))
+    }
+  }
+
+  if (row.quoted_tweet?.full_text) {
+    body.push('', `> **Quoting @${row.quoted_tweet.screen_name || ''}:**`)
+    body.push(quoteBlock(row.quoted_tweet.full_text))
+  }
+
+  const media = row.media || row.media_items
+  if (Array.isArray(media) && media.length > 0) {
+    body.push('')
+    for (const m of media) {
+      const src = m.original || m.media_url || m.media_url_https || ''
+      if (src) body.push(`![](${src})`)
+    }
+  }
+
+  if (url) {
+    body.push('', `[View on X](${url})`)
+  }
+
+  const base =
+    sanitizeFilePart(`${isoDate ? isoDate + '-' : ''}${handle}-${tweetId}`) ||
+    tweetId ||
+    'note'
+  return {
+    path: `${folder}/${base}.md`,
+    content: fm.join('\n') + '\n\n' + body.join('\n') + '\n',
+  }
+}
+
+export async function obsidianVaultZipBlob(data: DataType[]): Promise<Blob> {
+  const enc = new TextEncoder()
+  const seen = new Map<string, number>()
+  const entries = data.map((row) => {
+    const note = obsidianNote(row)
+    let path = note.path
+    const n = seen.get(path) ?? 0
+    seen.set(path, n + 1)
+    if (n > 0) path = path.replace(/\.md$/, `-${n}.md`)
+    return { name: path, data: enc.encode(note.content) }
+  })
+  return createZip(entries)
 }
 
 /**

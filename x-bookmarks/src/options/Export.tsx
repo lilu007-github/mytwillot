@@ -116,6 +116,10 @@ const ExportPage = () => {
       )
     } else if (params.file_format === 'json') {
       exportData(records, 'JSON', 'twillot-bookmarks.json')
+    } else if (params.file_format === 'obsidian') {
+      // Raw records: the Obsidian exporter reads epoch created_at, tags,
+      // folder and thread fields directly to build one note per tweet.
+      exportData(records, 'Obsidian', 'twillot-obsidian-vault.zip')
     } else if (
       params.file_format === 'markdown' ||
       params.file_format === 'pdf'

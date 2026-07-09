@@ -11,6 +11,7 @@ const fileTypes = [
   { value: 'csv', label: 'CSV', level: MemberLevel.Free },
   { value: 'json', label: 'Raw JSON', level: MemberLevel.Basic },
   { value: 'markdown', label: 'Markdown', level: MemberLevel.Free },
+  { value: 'obsidian', label: 'Obsidian vault (.zip)', level: MemberLevel.Free },
   { value: 'pdf', label: 'PDF', level: MemberLevel.Free },
   // { value: 'docx', label: 'DOCX', level: 1 },
 ]
