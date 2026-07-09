@@ -4,6 +4,8 @@
  * backend involved. Used to auto-sort tweets into existing folders.
  */
 
+import { fetchWithTimeout } from '../fetch-timeout'
+
 export type AIProvider = 'anthropic' | 'openai'
 
 export interface AISettings {
@@ -65,7 +67,7 @@ async function classifyAnthropic(
   folders: string[],
   settings: AISettings,
 ): Promise<string> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -96,7 +98,7 @@ async function classifyOpenAI(
   folders: string[],
   settings: AISettings,
 ): Promise<string> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -198,7 +200,7 @@ async function summarizeAnthropic(
   text: string,
   settings: AISettings,
 ): Promise<TweetSummary> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -222,7 +224,7 @@ async function summarizeOpenAI(
   text: string,
   settings: AISettings,
 ): Promise<TweetSummary> {
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',

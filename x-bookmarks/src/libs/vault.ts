@@ -11,7 +11,8 @@
  * as `any` — the build uses esbuild (no type check) and this keeps tsc quiet.
  */
 
-import { obsidianNote, type DataType } from 'utils/exporter'
+import { obsidianNote, uniqueNotePath, type DataType } from 'utils/exporter'
+import { fnv1aHex } from 'utils/hash'
 
 const VAULT_DB = 'twillot_vault'
 const META_STORE = 'meta'
@@ -99,16 +100,6 @@ export async function ensurePermission(
   return perm as 'granted' | 'prompt' | 'denied'
 }
 
-/** Fast, non-cryptographic content hash (FNV-1a) for change detection. */
-function hashContent(s: string): string {
-  let h = 0x811c9dc5
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 0x01000193)
-  }
-  return (h >>> 0).toString(16)
-}
-
 async function writeNote(
   root: any,
   path: string,
@@ -167,15 +158,9 @@ export async function syncToVault(
   for (let i = 0; i < records.length; i++) {
     const note = obsidianNote(records[i])
     // De-dup identical paths within this run (same handle+id collisions).
-    let path = note.path
-    let n = 0
-    while (usedPaths.has(path)) {
-      n++
-      path = note.path.replace(/\.md$/, `-${n}.md`)
-    }
-    usedPaths.add(path)
+    const path = uniqueNotePath(note.path, usedPaths)
 
-    const hash = hashContent(note.content)
+    const hash = fnv1aHex(note.content)
     if (manifest[path] === hash) {
       skipped++
     } else {

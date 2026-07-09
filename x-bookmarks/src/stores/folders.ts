@@ -299,51 +299,7 @@ export const syncXFolders = async (
   }
 }
 
-// ---------------------------------------------------------------------------
-// Legacy compatibility exports
-// These maintain backward compatibility with existing UI components
-// (AsideFolder, FolderDropDown, FolderSelect) until they are replaced
-// by the new FolderPanel component in task 7.x.
-// ---------------------------------------------------------------------------
-
 const [legacyStore] = dataStore
-
-/** @deprecated Use createFolder instead */
-export const addFolder = async (folderName: string) => {
-  if (!folderName) return
-  try {
-    await createFolder(folderName)
-    // Also update the legacy store for backward compat
-    mutateStore((s) => {
-      if (!s.folders.some((f) => f.name === folderName)) {
-        s.folders.push({ name: folderName.trim(), count: 0 })
-      }
-    })
-  } catch {
-    // Error already surfaced via error signal
-  }
-}
-
-/** @deprecated Use deleteFolder instead */
-export const removeFolder = async (folder: string) => {
-  try {
-    await deleteFolder(folder)
-    // Also update the legacy store
-    mutateStore((s) => {
-      const index = s.folders.findIndex((f) => f.name === folder)
-      if (index > -1) {
-        s.folders.splice(index, 1)
-      }
-      s.tweets.forEach((t) => {
-        if (t.folder === folder) {
-          t.folder = ''
-        }
-      })
-    })
-  } catch {
-    // Error already surfaced via error signal
-  }
-}
 
 /** Move a single tweet to a folder and reflect it in the query result set. */
 export const moveTweetToFolder = async (folder: string, tweet: any) => {
@@ -366,32 +322,6 @@ export const moveTweetToFolder = async (folder: string, tweet: any) => {
   })
   // Folder counts live in folderState now; recompute from the DB.
   await refreshFolderCounts()
-}
-
-/** @deprecated Use moveEntitiesToFolder instead */
-export const moveTweetsToFolder = async (folder: string) => {
-  try {
-    const index = legacyStore.folders.findIndex((f) => f.name === folder)
-    if (index === -1) return
-    let tweets = unwrap(legacyStore.tweets)
-      .filter((x) => !x.folder)
-      .map((tweet) => ({
-        ...tweet,
-        folder,
-      }))
-    await upsertRecords(tweets, true)
-    mutateStore((s) => {
-      s.tweets.forEach((t) => {
-        if (!t.folder) {
-          t.folder = folder
-        }
-      })
-      s.folders[index].count += tweets.length
-    })
-    alert(`${tweets.length} tweets has been moved to folder ${folder}`)
-  } catch (err) {
-    console.error(err)
-  }
 }
 
 // ---------------------------------------------------------------------------

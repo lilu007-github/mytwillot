@@ -13,7 +13,6 @@
     'Followers',
     'Following',
     'BlueVerifiedFollowers',
-    'TweetDetail',
   ])
 
   // Extract the operation name from `/i/api/graphql/{queryId}/{OperationName}`.

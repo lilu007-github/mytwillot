@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
-import { obsidianNote } from './exporter'
+import { obsidianNote, uniqueNotePath } from './exporter'
 import { createZipBytes } from './zip'
 import { buildObsidianUri } from './obsidian-rest'
+import { fnv1aHex } from './hash'
 
 describe('obsidianNote', () => {
   it('builds frontmatter, wikilinks, thread quotes and file path', () => {
@@ -96,6 +97,27 @@ describe('buildObsidianUri', () => {
     expect(params.has('vault')).toBe(false)
     expect(params.get('content')!.length).toBeLessThan(6100)
     expect(params.get('content')).toContain('truncated')
+  })
+})
+
+describe('uniqueNotePath', () => {
+  it('appends -1, -2… on collision and avoids natural names too', () => {
+    const used = new Set<string>()
+    expect(uniqueNotePath('a/x.md', used)).toBe('a/x.md')
+    expect(uniqueNotePath('a/x.md', used)).toBe('a/x-1.md')
+    expect(uniqueNotePath('a/x.md', used)).toBe('a/x-2.md')
+    // A note genuinely named x-3.md must not be clobbered by the suffixing.
+    used.add('a/x-3.md')
+    expect(uniqueNotePath('a/x.md', used)).toBe('a/x-4.md')
+  })
+})
+
+describe('fnv1aHex', () => {
+  it('matches the FNV-1a 32-bit test vector', () => {
+    // Both incremental-sync manifests (vault + REST) depend on this exact
+    // hash; a change here invalidates them.
+    expect(fnv1aHex('hello')).toBe('4f9f2cab')
+    expect(fnv1aHex('')).toBe('811c9dc5')
   })
 })
 

@@ -10,7 +10,9 @@
  * note in the desktop app — length-limited, so best for one tweet at a time.
  */
 
-import { obsidianNote, type DataType } from './exporter'
+import { obsidianNote, uniqueNotePath, type DataType } from './exporter'
+import { fnv1aHex } from './hash'
+import { fetchWithTimeout } from './fetch-timeout'
 
 export interface ObsidianRestSettings {
   /** Base URL of the Local REST API server. */
@@ -57,15 +59,6 @@ export async function resetRestManifest(): Promise<void> {
   await setRestManifest({})
 }
 
-function fnv1a(s: string): string {
-  let h = 0x811c9dc5
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i)
-    h = Math.imul(h, 0x01000193)
-  }
-  return (h >>> 0).toString(16)
-}
-
 function base(host: string): string {
   return host.replace(/\/+$/, '')
 }
@@ -80,14 +73,18 @@ async function putNote(
   path: string,
   content: string,
 ): Promise<void> {
-  const res = await fetch(vaultUrl(settings.host, path), {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'text/markdown',
-      Authorization: `Bearer ${settings.apiKey}`,
+  const res = await fetchWithTimeout(
+    vaultUrl(settings.host, path),
+    {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'text/markdown',
+        Authorization: `Bearer ${settings.apiKey}`,
+      },
+      body: content,
     },
-    body: content,
-  })
+    30_000,
+  )
   if (!res.ok && res.status !== 204) {
     throw new Error(`REST ${res.status} ${res.statusText}`)
   }
@@ -106,9 +103,11 @@ export async function testObsidianRest(
     return { ok: false, message: 'API key is empty' }
   }
   try {
-    const res = await fetch(`${base(settings.host)}/`, {
-      headers: { Authorization: `Bearer ${settings.apiKey}` },
-    })
+    const res = await fetchWithTimeout(
+      `${base(settings.host)}/`,
+      { headers: { Authorization: `Bearer ${settings.apiKey}` } },
+      10_000,
+    )
     if (!res.ok) {
       return { ok: false, message: `HTTP ${res.status}` }
     }
@@ -157,15 +156,9 @@ export async function pushAllToRest(
 
   for (let i = 0; i < records.length; i++) {
     const note = obsidianNote(records[i])
-    let path = note.path
-    let n = 0
-    while (used.has(path)) {
-      n++
-      path = note.path.replace(/\.md$/, `-${n}.md`)
-    }
-    used.add(path)
+    const path = uniqueNotePath(note.path, used)
 
-    const hash = fnv1a(note.content)
+    const hash = fnv1aHex(note.content)
     if (manifest[path] === hash) {
       skipped++
     } else {

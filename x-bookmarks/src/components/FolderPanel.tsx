@@ -1,6 +1,6 @@
 import { createMemo, createSignal, For, Show } from 'solid-js'
 
-import { type EntityScope, type Folder } from 'utils/types'
+import { type EntityScope } from 'utils/types'
 import {
   folderState,
   folderError,
@@ -10,6 +10,10 @@ import {
   setFolderParent,
   setActiveFolder,
 } from '../stores/folders'
+import {
+  buildFolderTree,
+  type FolderTreeNode as TreeNode,
+} from '../libs/folder-tree'
 import { IconFolders, IconTrash } from './Icons'
 
 interface FolderPanelProps {
@@ -19,36 +23,13 @@ interface FolderPanelProps {
   onToggle: () => void
 }
 
-interface TreeNode {
-  folder: Folder
-  depth: number
-  children: TreeNode[]
-}
-
 export default function FolderPanel(props: FolderPanelProps) {
   const [newFolderName, setNewFolderName] = createSignal('')
   const [editingFolder, setEditingFolder] = createSignal<string | null>(null)
   const [editName, setEditName] = createSignal('')
 
   // Build a nested tree from the flat parent_id list.
-  const tree = createMemo<TreeNode[]>(() => {
-    const folders = folderState.folders
-    const byParent = new Map<string, Folder[]>()
-    for (const f of folders) {
-      const key = f.parent_id || '__root__'
-      if (!byParent.has(key)) byParent.set(key, [])
-      byParent.get(key)!.push(f)
-    }
-    const build = (parentKey: string, depth: number): TreeNode[] =>
-      (byParent.get(parentKey) || [])
-        .sort((a, b) => a.sort_order - b.sort_order)
-        .map((folder) => ({
-          folder,
-          depth,
-          children: build(folder.name, depth + 1),
-        }))
-    return build('__root__', 0)
-  })
+  const tree = createMemo<TreeNode[]>(() => buildFolderTree(folderState.folders))
 
   const handleCreate = async (e: Event) => {
     e.preventDefault()
