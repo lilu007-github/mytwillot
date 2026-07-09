@@ -154,8 +154,19 @@ export function obsidianNote(row: DataType): { path: string; content: string } {
   fm.push('source: X')
   fm.push(`folder: ${yamlValue(folder)}`)
   if (summary) fm.push(`summary: ${yamlValue(summary)}`)
-  if (tags.length) {
-    fm.push(`tags: [${tags.map((t) => yamlValue(sanitizeFilePart(t))).join(', ')}]`)
+  // Merge user tags with AI keyword tags (deduped), preserving order.
+  const aiTags: string[] = Array.isArray(row.ai_tags) ? row.ai_tags : []
+  const allTags: string[] = []
+  const seenTags = new Set<string>()
+  for (const t of [...tags, ...aiTags]) {
+    const clean = sanitizeFilePart(t)
+    if (clean && !seenTags.has(clean.toLowerCase())) {
+      seenTags.add(clean.toLowerCase())
+      allTags.push(clean)
+    }
+  }
+  if (allTags.length) {
+    fm.push(`tags: [${allTags.map((t) => yamlValue(t)).join(', ')}]`)
   }
   fm.push('---')
 
