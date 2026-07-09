@@ -6,6 +6,7 @@ import License from '../options/License'
 import Export from '../options/Export'
 import CategoryView from '../options/CategoryView'
 import Gallery from '../options/Gallery'
+import Settings from '../options/Settings'
 import UserGridPage from '../options/grid/UserGridPage'
 import AccountManagement from '../components/AccountManagement'
 import Layout from '../options/Layout'
@@ -21,6 +22,7 @@ export default function getRoot() {
       <Route path="/accounts" component={AccountManagement} />
       <Route path="/license" component={License} />
       <Route path="/export" component={Export} />
+      <Route path="/settings" component={Settings} />
     </HashRouter>
   )
 }

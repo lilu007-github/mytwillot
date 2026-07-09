@@ -3,10 +3,10 @@ import { batch, createEffect, onMount, Show } from 'solid-js'
 import dataStore from './store'
 import { openPage } from 'utils/dom'
 import Contribution from '../components/Contribution'
-import { IconChevronArrowDown } from '../components/Icons'
+import { IconChevronArrowDown, IconSparkles } from '../components/Icons'
 import TopN from '../components/TopN'
 import TweetList from '../components/TweetList'
-import { queryByCondition } from './handlers'
+import { queryByCondition, smartTagging } from './handlers'
 import Filter from '../components/Filter'
 
 export const Home = () => {
@@ -61,6 +61,21 @@ export const Home = () => {
       </Show>
 
       <div class="mb-4">
+        <Show when={!store.isSidePanel}>
+          <div class="mb-2 flex justify-end px-3 lg:px-0">
+            <button
+              class="inline-flex items-center gap-2 rounded-lg bg-purple-500 px-3 py-1.5 text-sm text-white hover:bg-purple-600 disabled:opacity-50"
+              disabled={store.isTagging}
+              onClick={(e) => {
+                e.stopPropagation()
+                smartTagging()
+              }}
+            >
+              <IconSparkles />
+              <span>{store.isTagging ? 'Organizing…' : 'AI Auto-Organize'}</span>
+            </button>
+          </div>
+        </Show>
         <Filter />
         <TweetList
           tweets={store.tweets}
