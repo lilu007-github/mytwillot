@@ -10,7 +10,8 @@ export const MAX_MEDIA_EXPORT_SIZE = [100, 500, Number.MAX_SAFE_INTEGER]
 const fileTypes = [
   { value: 'csv', label: 'CSV', level: MemberLevel.Free },
   { value: 'json', label: 'Raw JSON', level: MemberLevel.Basic },
-  // { value: 'pdf', label: 'PDF', level: 1 },
+  { value: 'markdown', label: 'Markdown', level: MemberLevel.Free },
+  { value: 'pdf', label: 'PDF', level: MemberLevel.Free },
   // { value: 'docx', label: 'DOCX', level: 1 },
 ]
 const unrollThreads = [
