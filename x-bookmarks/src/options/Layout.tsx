@@ -33,6 +33,7 @@ import logo from '../../public/img/logo-128.png'
 import { allCategories } from '../constants'
 import { folderState, initFolders, setActiveScope, setActiveFolder } from '../stores/folders'
 import FolderPanel from '../components/FolderPanel'
+import TagPanel from '../components/TagPanel'
 import { getCurrentUserId, getStorageKey, getAuthInfo, onLocalChanged, StorageKeys } from 'utils/storage'
 import { getLicense, isViolatedLicense, LICENSE_KEY } from 'utils/license'
 import { getAccountRegistry, upsertAccountEntry, type AccountEntry } from 'utils/account-manager'
@@ -55,6 +56,7 @@ export const Layout = (props) => {
   const location = useLocation()
   const [bookmarksOpen, setBookmarksOpen] = createSignal(true)
   const [foldersOpen, setFoldersOpen] = createSignal(true)
+  const [tagsOpen, setTagsOpen] = createSignal(true)
 
   // Reactive signals for AccountIndicator
   const [activeUserId, setActiveUserId] = createSignal('')
@@ -192,6 +194,14 @@ export const Layout = (props) => {
   })
 
   const activeScope = createMemo(() => getScopeFromPath(location.pathname))
+
+  // Tweet views (bookmarks Home + category pages) support tag filtering.
+  const isTweetView = createMemo(
+    () =>
+      location.pathname === '/' ||
+      location.pathname === '/bookmarks' ||
+      location.pathname.startsWith('/type/'),
+  )
 
   const unsortedCount = createMemo(() => {
     const scope = activeScope()
@@ -467,15 +477,23 @@ export const Layout = (props) => {
               </li>
             </ul>
 
-            {/* Folder Panel - sticky at bottom, hidden on non-entity pages */}
-            <Show when={activeScope()}>
+            {/* Folder + Tag panels - sticky at bottom */}
+            <Show when={activeScope() || isTweetView()}>
               <div class="sticky bottom-0 border-t border-gray-200 bg-white pt-2 dark:border-gray-700 dark:bg-[#121212]">
-                <FolderPanel
-                  scope={activeScope()!}
-                  unsortedCount={unsortedCount()}
-                  isOpen={foldersOpen()}
-                  onToggle={() => setFoldersOpen(!foldersOpen())}
-                />
+                <Show when={activeScope()}>
+                  <FolderPanel
+                    scope={activeScope()!}
+                    unsortedCount={unsortedCount()}
+                    isOpen={foldersOpen()}
+                    onToggle={() => setFoldersOpen(!foldersOpen())}
+                  />
+                </Show>
+                <Show when={isTweetView()}>
+                  <TagPanel
+                    isOpen={tagsOpen()}
+                    onToggle={() => setTagsOpen(!tagsOpen())}
+                  />
+                </Show>
               </div>
             </Show>
           </div>

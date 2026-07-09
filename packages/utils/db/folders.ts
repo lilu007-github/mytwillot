@@ -25,6 +25,7 @@ export function getFolderId(
 export async function createFolder(
   name: string,
   scope: EntityScope,
+  parentId: string | null = null,
 ): Promise<Folder> {
   const ownerId = await getCurrentUserId()
   const existingFolders = await getFoldersByScope(scope)
@@ -45,6 +46,8 @@ export async function createFolder(
     scope,
     sort_order: sortOrder,
     created_at: Math.floor(Date.now() / 1000),
+    parent_id:
+      parentId && existingNames.includes(parentId) ? parentId : null,
   }
 
   const db = await openDb()
@@ -54,6 +57,68 @@ export async function createFolder(
     const request = objectStore.put(folder)
     transaction.oncomplete = () => resolve(folder)
     transaction.onerror = () => reject(new Error('Failed to create folder'))
+  })
+}
+
+/**
+ * Would setting `parentName` as the parent of `childName` create a cycle?
+ * True if parentName is childName itself or a descendant of childName.
+ */
+function wouldCreateCycle(
+  folders: Folder[],
+  childName: string,
+  parentName: string,
+): boolean {
+  if (childName === parentName) {
+    return true
+  }
+  const byName = new Map(folders.map((f) => [f.name, f]))
+  let cursor: string | null | undefined = parentName
+  const seen = new Set<string>()
+  while (cursor) {
+    if (cursor === childName) {
+      return true
+    }
+    if (seen.has(cursor)) {
+      break
+    }
+    seen.add(cursor)
+    cursor = byName.get(cursor)?.parent_id
+  }
+  return false
+}
+
+/**
+ * Re-parent a folder. Pass null to move it to the top level. Rejects moves
+ * that would create a cycle.
+ */
+export async function setFolderParent(
+  name: string,
+  scope: EntityScope,
+  parentName: string | null,
+): Promise<void> {
+  const ownerId = await getCurrentUserId()
+  const folders = await getFoldersByScope(scope)
+  const folder = folders.find((f) => f.name === name)
+  if (!folder) {
+    throw new FolderNotFoundError(name, scope)
+  }
+  if (parentName) {
+    if (!folders.some((f) => f.name === parentName)) {
+      throw new FolderNotFoundError(parentName, scope)
+    }
+    if (wouldCreateCycle(folders, name, parentName)) {
+      throw new Error('Cannot nest a folder inside its own descendant')
+    }
+  }
+
+  const updated: Folder = { ...folder, parent_id: parentName }
+  const db = await openDb()
+  const { objectStore, transaction } = getObjectStore(db, FOLDERS_TABLE_NAME)
+  return new Promise((resolve, reject) => {
+    objectStore.put(updated)
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = () => reject(new Error('Failed to re-parent folder'))
   })
 }
 
@@ -111,6 +176,23 @@ export async function renameFolder(
   await new Promise<void>((resolve, reject) => {
     folderStore.delete(oldId)
     folderStore.put(updatedFolder)
+    // Re-point any child folders from the old name to the new name.
+    const childCursor = folderStore.openCursor()
+    childCursor.onsuccess = (event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
+      if (cursor) {
+        const child = cursor.value as Folder
+        if (
+          child.owner_id === ownerId &&
+          child.scope === scope &&
+          child.parent_id === oldName
+        ) {
+          child.parent_id = trimmedNewName
+          cursor.update(child)
+        }
+        cursor.continue()
+      }
+    }
     folderTx.oncomplete = () => resolve()
     folderTx.onerror = () => reject(new Error('Failed to rename folder'))
   })
@@ -156,20 +238,22 @@ export async function deleteFolder(
   const ownerId = await getCurrentUserId()
   const id = getFolderId(ownerId, scope, name)
 
-  // Verify folder exists
+  // Verify folder exists and capture its parent for re-parenting children
   const db = await openDb()
-  const exists = await new Promise<boolean>((resolve, reject) => {
+  const existing = await new Promise<Folder | undefined>((resolve, reject) => {
     const { objectStore } = getObjectStore(db, FOLDERS_TABLE_NAME)
     const request = objectStore.get(id)
-    request.onsuccess = () => resolve(!!request.result)
+    request.onsuccess = () => resolve(request.result)
     request.onerror = () => reject(new Error('Failed to check folder'))
   })
 
-  if (!exists) {
+  if (!existing) {
     throw new FolderNotFoundError(name, scope)
   }
 
-  // Delete the folder record
+  const grandparent = existing.parent_id ?? null
+
+  // Delete the folder record and re-parent its children to the grandparent.
   const db2 = await openDb()
   const { objectStore: folderStore, transaction: folderTx } = getObjectStore(
     db2,
@@ -178,6 +262,22 @@ export async function deleteFolder(
 
   await new Promise<void>((resolve, reject) => {
     folderStore.delete(id)
+    const childCursor = folderStore.openCursor()
+    childCursor.onsuccess = (event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
+      if (cursor) {
+        const child = cursor.value as Folder
+        if (
+          child.owner_id === ownerId &&
+          child.scope === scope &&
+          child.parent_id === name
+        ) {
+          child.parent_id = grandparent
+          cursor.update(child)
+        }
+        cursor.continue()
+      }
+    }
     folderTx.oncomplete = () => resolve()
     folderTx.onerror = () => reject(new Error('Failed to delete folder'))
   })

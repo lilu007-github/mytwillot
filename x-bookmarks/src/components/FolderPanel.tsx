@@ -1,4 +1,4 @@
-import { createSignal, For, Show } from 'solid-js'
+import { createMemo, createSignal, For, Show } from 'solid-js'
 
 import { type EntityScope, type Folder } from 'utils/types'
 import {
@@ -7,12 +7,10 @@ import {
   createFolder,
   deleteFolder,
   renameFolder,
-  reorderFolders,
+  setFolderParent,
   setActiveFolder,
 } from '../stores/folders'
 import { IconFolders, IconTrash } from './Icons'
-import Spinner from './Spinner'
-import dataStore from '../options/store'
 
 interface FolderPanelProps {
   scope: EntityScope
@@ -21,11 +19,36 @@ interface FolderPanelProps {
   onToggle: () => void
 }
 
+interface TreeNode {
+  folder: Folder
+  depth: number
+  children: TreeNode[]
+}
+
 export default function FolderPanel(props: FolderPanelProps) {
   const [newFolderName, setNewFolderName] = createSignal('')
   const [editingFolder, setEditingFolder] = createSignal<string | null>(null)
   const [editName, setEditName] = createSignal('')
-  const [draggingIndex, setDraggingIndex] = createSignal<number | null>(null)
+
+  // Build a nested tree from the flat parent_id list.
+  const tree = createMemo<TreeNode[]>(() => {
+    const folders = folderState.folders
+    const byParent = new Map<string, Folder[]>()
+    for (const f of folders) {
+      const key = f.parent_id || '__root__'
+      if (!byParent.has(key)) byParent.set(key, [])
+      byParent.get(key)!.push(f)
+    }
+    const build = (parentKey: string, depth: number): TreeNode[] =>
+      (byParent.get(parentKey) || [])
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map((folder) => ({
+          folder,
+          depth,
+          children: build(folder.name, depth + 1),
+        }))
+    return build('__root__', 0)
+  })
 
   const handleCreate = async (e: Event) => {
     e.preventDefault()
@@ -35,7 +58,7 @@ export default function FolderPanel(props: FolderPanelProps) {
       await createFolder(name)
       setNewFolderName('')
     } catch {
-      // Error surfaced via folderError signal
+      // surfaced via folderError
     }
   }
 
@@ -44,7 +67,7 @@ export default function FolderPanel(props: FolderPanelProps) {
     try {
       await deleteFolder(name)
     } catch {
-      // Error surfaced via folderError signal
+      // surfaced via folderError
     }
   }
 
@@ -61,46 +84,125 @@ export default function FolderPanel(props: FolderPanelProps) {
     try {
       await renameFolder(oldName, newName)
     } catch {
-      // Error surfaced via folderError signal
+      // surfaced via folderError
     }
   }
 
   const handleFolderClick = (name: string) => {
-    if (folderState.activeFolder === name) {
-      setActiveFolder(null)
-    } else {
-      setActiveFolder(name)
-    }
+    setActiveFolder(folderState.activeFolder === name ? null : name)
   }
 
-  const handleUnsortedClick = () => {
-    if (folderState.activeFolder === 'Unsorted') {
-      setActiveFolder(null)
-    } else {
-      setActiveFolder('Unsorted')
-    }
-  }
-
-  const handleDragStart = (index: number) => {
-    setDraggingIndex(index)
-  }
-
-  const handleDragOver = (index: number, event: DragEvent) => {
-    event.preventDefault()
-    const draggingItemIndex = draggingIndex()
-    if (draggingItemIndex === null || draggingItemIndex === index) return
-  }
-
-  const handleDragEnd = async () => {
-    const fromIndex = draggingIndex()
-    setDraggingIndex(null)
-    if (fromIndex === null) return
-    const orderedNames = folderState.folders.map((f) => f.name)
+  const handleReparent = async (name: string, parent: string) => {
     try {
-      await reorderFolders(orderedNames)
+      await setFolderParent(name, parent === '' ? null : parent)
     } catch {
-      // Error surfaced via folderError signal
+      // surfaced via folderError
     }
+  }
+
+  // A node cannot be moved under itself or its own descendants.
+  const descendantsOf = (name: string): Set<string> => {
+    const out = new Set<string>()
+    const walk = (n: string) => {
+      for (const f of folderState.folders) {
+        if (f.parent_id === n && !out.has(f.name)) {
+          out.add(f.name)
+          walk(f.name)
+        }
+      }
+    }
+    walk(name)
+    return out
+  }
+
+  const renderNode = (node: TreeNode) => {
+    const folder = node.folder
+    const forbidden = createMemo(() => {
+      const set = descendantsOf(folder.name)
+      set.add(folder.name)
+      return set
+    })
+    return (
+      <li class="select-none">
+        <Show
+          when={editingFolder() !== folder.name}
+          fallback={
+            <div
+              class="flex w-full items-center p-1"
+              style={{ 'padding-left': `${1.75 + node.depth * 1}rem` }}
+            >
+              <input
+                type="text"
+                class="w-full rounded border border-gray-300 px-1 text-sm dark:border-gray-600 dark:bg-gray-800"
+                value={editName()}
+                onInput={(e) => setEditName(e.currentTarget.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleRenameSubmit(folder.name)
+                  if (e.key === 'Escape') setEditingFolder(null)
+                }}
+                onBlur={() => handleRenameSubmit(folder.name)}
+                autofocus
+              />
+            </div>
+          }
+        >
+          <div
+            class={`group flex w-full cursor-pointer items-center rounded-lg p-1 transition duration-75 ${
+              folderState.activeFolder === folder.name
+                ? 'bg-blue-50 text-blue-500 dark:bg-blue-900/20'
+                : ''
+            }`}
+            style={{ 'padding-left': `${1.75 + node.depth * 1}rem` }}
+            onClick={() => handleFolderClick(folder.name)}
+            onDblClick={(e) => handleRenameStart(folder.name, e)}
+          >
+            <span class="truncate">{folder.name}</span>
+            <div class="ml-2 hidden flex-1 items-center justify-end gap-2 group-hover:flex">
+              <select
+                class="max-w-[6rem] rounded border border-gray-300 bg-white text-xs dark:border-gray-600 dark:bg-gray-800"
+                title="Move under…"
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  handleReparent(folder.name, e.currentTarget.value)
+                }}
+              >
+                <option value="" selected={!folder.parent_id}>
+                  (top level)
+                </option>
+                <For
+                  each={folderState.folders.filter(
+                    (f) => !forbidden().has(f.name),
+                  )}
+                >
+                  {(f) => (
+                    <option
+                      value={f.name}
+                      selected={folder.parent_id === f.name}
+                    >
+                      {f.name}
+                    </option>
+                  )}
+                </For>
+              </select>
+              <span
+                class="cursor-pointer"
+                onClick={(e) => handleDelete(folder.name, e)}
+              >
+                <IconTrash />
+              </span>
+            </div>
+            <span class="mr-1 flex-1 items-center text-right text-xs font-medium opacity-60 group-hover:hidden">
+              {folderState.folderCounts[folder.name] ?? 0}
+            </span>
+          </div>
+        </Show>
+        <Show when={node.children.length > 0}>
+          <ul class="space-y-1">
+            <For each={node.children}>{(child) => renderNode(child)}</For>
+          </ul>
+        </Show>
+      </li>
+    )
   }
 
   return (
@@ -134,7 +236,11 @@ export default function FolderPanel(props: FolderPanelProps) {
                 ? 'bg-blue-50 text-blue-500 dark:bg-blue-900/20'
                 : ''
             }`}
-            onClick={handleUnsortedClick}
+            onClick={() =>
+              setActiveFolder(
+                folderState.activeFolder === 'Unsorted' ? null : 'Unsorted',
+              )
+            }
           >
             Unsorted
             <span class="mr-1 flex-1 items-center text-right text-xs font-medium opacity-60">
@@ -142,70 +248,13 @@ export default function FolderPanel(props: FolderPanelProps) {
             </span>
           </div>
 
-          {/* Folder list */}
+          {/* Folder tree */}
           <ul class="space-y-1">
-            <For each={folderState.folders}>
-              {(folder, index) => (
-                <li
-                  draggable
-                  onDragStart={() => handleDragStart(index())}
-                  onDragOver={(event) => handleDragOver(index(), event)}
-                  onDragEnd={handleDragEnd}
-                  class="select-none"
-                >
-                  <Show
-                    when={editingFolder() !== folder.name}
-                    fallback={
-                      <div class="flex w-full items-center p-1 pl-11">
-                        <input
-                          type="text"
-                          class="w-full rounded border border-gray-300 px-1 text-sm dark:border-gray-600 dark:bg-gray-800"
-                          value={editName()}
-                          onInput={(e) => setEditName(e.currentTarget.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter')
-                              handleRenameSubmit(folder.name)
-                            if (e.key === 'Escape') setEditingFolder(null)
-                          }}
-                          onBlur={() => handleRenameSubmit(folder.name)}
-                          autofocus
-                        />
-                      </div>
-                    }
-                  >
-                    <div
-                      class={`group flex w-full cursor-pointer items-center rounded-lg p-1 pl-11 transition duration-75 ${
-                        folderState.activeFolder === folder.name
-                          ? 'bg-blue-50 text-blue-500 dark:bg-blue-900/20'
-                          : ''
-                      }`}
-                      onClick={() => handleFolderClick(folder.name)}
-                      onDblClick={(e) => handleRenameStart(folder.name, e)}
-                    >
-                      {folder.name}
-                      <div class="ml-4 hidden flex-1 items-center justify-end gap-2 group-hover:flex">
-                        <span
-                          class="cursor-pointer"
-                          onClick={(e) => handleDelete(folder.name, e)}
-                        >
-                          <IconTrash />
-                        </span>
-                      </div>
-                      <span class="mr-1 flex-1 items-center text-right text-xs font-medium opacity-60 group-hover:hidden">
-                        {folderState.folderCounts[folder.name] ?? 0}
-                      </span>
-                    </div>
-                  </Show>
-                </li>
-              )}
-            </For>
+            <For each={tree()}>{(node) => renderNode(node)}</For>
           </ul>
 
           {/* Create folder form */}
-          <form
-            class="flex w-full items-center p-1 pl-11"
-            onSubmit={handleCreate}
-          >
+          <form class="flex w-full items-center p-1 pl-11" onSubmit={handleCreate}>
             <input
               type="text"
               class="w-full rounded border border-gray-300 px-2 py-1 text-sm placeholder-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:placeholder-gray-500"

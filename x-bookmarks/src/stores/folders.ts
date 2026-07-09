@@ -16,6 +16,7 @@ import {
   renameFolder as dbRenameFolder,
   deleteFolder as dbDeleteFolder,
   reorderFolders as dbReorderFolders,
+  setFolderParent as dbSetFolderParent,
   getFoldersByScope,
   getFolderCounts,
   folderExists,
@@ -109,13 +110,32 @@ export async function refreshFolderCounts() {
 // CRUD operations (scoped to activeScope)
 // ---------------------------------------------------------------------------
 
-export async function createFolder(name: string) {
+export async function createFolder(
+  name: string,
+  parentId: string | null = null,
+) {
   try {
-    const folder = await dbCreateFolder(name, state.activeScope)
+    const folder = await dbCreateFolder(name, state.activeScope, parentId)
     setState('folders', [...state.folders, folder])
   } catch (err: any) {
     console.error('createFolder error:', err)
     surfaceError(err.message || 'Failed to create folder')
+    throw err
+  }
+}
+
+/** Re-parent a folder (null = move to top level). */
+export async function setFolderParent(
+  name: string,
+  parentName: string | null,
+) {
+  try {
+    await dbSetFolderParent(name, state.activeScope, parentName)
+    const folders = await getFoldersByScope(state.activeScope)
+    setState('folders', folders)
+  } catch (err: any) {
+    console.error('setFolderParent error:', err)
+    surfaceError(err.message || 'Failed to move folder')
     throw err
   }
 }
