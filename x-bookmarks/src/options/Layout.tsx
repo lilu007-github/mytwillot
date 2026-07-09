@@ -500,6 +500,19 @@ export const Layout = (props) => {
               <li>
                 <A
                   class="flex items-center rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  href="/circles"
+                >
+                  <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <circle cx="7" cy="9" r="3.25" />
+                    <circle cx="16" cy="8" r="3.25" />
+                    <circle cx="12" cy="16" r="3.25" />
+                  </svg>
+                  <span class="ms-3 flex-1 whitespace-nowrap">Circles</span>
+                </A>
+              </li>
+              <li>
+                <A
+                  class="flex items-center rounded-lg p-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                   href="/accounts"
                 >
                   <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
