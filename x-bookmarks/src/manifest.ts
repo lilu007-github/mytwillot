@@ -4,7 +4,12 @@ import packageData from '../package.json'
 //@ts-ignore
 const isDev = process.env.NODE_ENV == 'development'
 
-const host_permissions = ['https://*.x.com/*']
+const host_permissions = [
+  'https://*.x.com/*',
+  // Client-side AI classification calls the user's chosen LLM provider directly.
+  'https://api.anthropic.com/*',
+  'https://api.openai.com/*',
+]
 // cloudflare workers
 if (isDev) {
   host_permissions.push('http://localhost:8787/*')
@@ -56,8 +61,10 @@ export default defineManifest({
         'img/logo-32.png',
         'img/logo-48.png',
         'img/logo-128.png',
+        'captureFollowers.js',
+        'captureGraphql.js',
       ],
-      matches: [],
+      matches: ['https://x.com/*'],
     },
   ],
   host_permissions,
@@ -66,6 +73,7 @@ export default defineManifest({
     'webRequest',
     'tabs',
     'sidePanel',
+    'scripting',
     'declarativeNetRequest',
     'declarativeNetRequestWithHostAccess',
     'downloads',

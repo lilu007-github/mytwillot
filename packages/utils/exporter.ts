@@ -5,6 +5,8 @@ export const EXPORT_FORMAT = {
   JSON: 'JSON',
   HTML: 'HTML',
   CSV: 'CSV',
+  MARKDOWN: 'Markdown',
+  PDF: 'PDF',
 } as const
 
 export type ExportFormatType =
@@ -72,9 +74,75 @@ export async function exportData(
         prependBOM = true
         content = await csvExporter(data, translations)
         break
+      case EXPORT_FORMAT.MARKDOWN:
+        content = await markdownExporter(data)
+        break
+      case EXPORT_FORMAT.PDF:
+        // Rendered client-side via the browser's print-to-PDF.
+        printHtml(await htmlExporter(data, translations))
+        return
     }
     saveFile(filename, content, prependBOM)
   } catch (err) {}
+}
+
+/**
+ * Render rows as Markdown. Tweet-shaped rows (with full_text) get a readable
+ * block; anything else falls back to a key/value list.
+ */
+export async function markdownExporter(data: DataType[]) {
+  const escape = (s: string) => String(s ?? '').replace(/\r?\n/g, '\n')
+
+  const blocks = data.map((row) => {
+    if ('full_text' in row) {
+      const lines: string[] = []
+      const who = row.username || row.screen_name || ''
+      const handle = row.screen_name ? `@${row.screen_name}` : ''
+      lines.push(`### ${who} ${handle}`.trim())
+      if (row.created_at) {
+        lines.push(`*${row.created_at}*`)
+      }
+      lines.push('')
+      lines.push(escape(row.full_text))
+      if (row.url) {
+        lines.push('')
+        lines.push(`[View on X](${row.url})`)
+      }
+      const media = row.media || row.media_items
+      if (Array.isArray(media) && media.length > 0) {
+        lines.push('')
+        for (const m of media) {
+          const src = m.original || m.media_url || m.media_url_https || ''
+          if (src) lines.push(`![media](${src})`)
+        }
+      }
+      return lines.join('\n')
+    }
+    return Object.entries(row)
+      .map(([k, v]) => `- **${k}**: ${escape(typeof v === 'string' ? v : JSON.stringify(v))}`)
+      .join('\n')
+  })
+
+  return blocks.join('\n\n---\n\n') + '\n'
+}
+
+/**
+ * Open the export HTML in a new window and invoke the print dialog so the user
+ * can "Save as PDF". Zero-dependency PDF export.
+ */
+export function printHtml(html: string) {
+  const win = window.open('', '_blank')
+  if (!win) {
+    return
+  }
+  win.document.open()
+  win.document.write(html)
+  win.document.close()
+  // Give the browser a tick to lay out before printing.
+  setTimeout(() => {
+    win.focus()
+    win.print()
+  }, 500)
 }
 
 export async function jsonExporter(data: DataType[]) {

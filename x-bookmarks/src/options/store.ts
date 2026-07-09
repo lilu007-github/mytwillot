@@ -18,6 +18,10 @@ export const defaultState = () => ({
   keyword: '',
   category: '',
   folder: '',
+  // data type view: bookmarks | likes | posts | replies | media
+  dataType: 'bookmarks',
+  // active tag filter (tag name), empty = no tag filter
+  tag: '',
   pageSize: 100,
   hasMore: true,
   totalCount: null as null | CountInfo,

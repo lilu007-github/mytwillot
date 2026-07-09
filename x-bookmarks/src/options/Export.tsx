@@ -116,6 +116,26 @@ const ExportPage = () => {
       )
     } else if (params.file_format === 'json') {
       exportData(records, 'JSON', 'twillot-bookmarks.json')
+    } else if (
+      params.file_format === 'markdown' ||
+      params.file_format === 'pdf'
+    ) {
+      const enriched = records.map((i) => ({
+        ...i,
+        url: `${Host}/${i.screen_name}/status/${i.tweet_id}`,
+        created_at: new Date(i.created_at * 1000).toLocaleString(),
+        media: i.media_items,
+        full_text: i.conversations?.length
+          ? i.full_text +
+            '\n' +
+            i.conversations.map((c) => c?.full_text || '').join('\n')
+          : i.full_text,
+      }))
+      exportData(
+        enriched,
+        params.file_format === 'markdown' ? 'Markdown' : 'PDF',
+        'twillot-bookmarks.md',
+      )
     }
   }
   const exportMedia = async (e) => {

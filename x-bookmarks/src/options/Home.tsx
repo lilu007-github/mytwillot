@@ -1,24 +1,29 @@
-import { createEffect, For, Show } from 'solid-js'
-import { A } from '@solidjs/router'
+import { batch, createEffect, For, onMount, Show } from 'solid-js'
 
 import dataStore from './store'
-import { Content } from '../components/Tweet'
 import { openPage } from 'utils/dom'
-import { Host } from 'utils/types'
 import Contribution from '../components/Contribution'
-import {
-  IconBookmark,
-  IconChevronArrowDown,
-  IconQuote,
-} from '../components/Icons'
+import { IconChevronArrowDown, IconSparkles } from '../components/Icons'
 import TopN from '../components/TopN'
-import FolderSelect from '../components/FolderSelect'
-import { queryByCondition, removeBookmark } from './handlers'
+import TweetList from '../components/TweetList'
+import { queryByCondition, smartTagging } from './handlers'
 import Filter from '../components/Filter'
 
 export const Home = () => {
   let listRef: HTMLDivElement
   const [store, setStore] = dataStore
+
+  // Coming back from a category view leaves dataType != 'bookmarks'; restore it.
+  // The Layout's global queryByCondition effect re-runs on these field changes.
+  onMount(() => {
+    if (store.dataType !== 'bookmarks') {
+      batch(() => {
+        setStore('dataType', 'bookmarks')
+        setStore('category', '')
+        setStore('tag', '')
+      })
+    }
+  })
 
   createEffect(() => {
     if (store.tweets.length > 0) {
@@ -36,6 +41,29 @@ export const Home = () => {
         <div class="mb-4 px-3 lg:px-0">
           <Contribution />
         </div>
+
+        <Show when={store.totalCount}>
+          <div class="mb-4 grid grid-cols-4 gap-2 px-3 text-center lg:grid-cols-7 lg:px-0">
+            <For
+              each={[
+                { label: 'Total', value: store.totalCount!.total },
+                { label: 'Unsorted', value: store.totalCount!.unsorted },
+                { label: 'Images', value: store.totalCount!.image },
+                { label: 'Videos', value: store.totalCount!.video },
+                { label: 'GIFs', value: store.totalCount!.gif },
+                { label: 'Links', value: store.totalCount!.link },
+                { label: 'Threads', value: store.totalCount!.long_text },
+              ]}
+            >
+              {(stat) => (
+                <div class="rounded-lg bg-gray-50 py-2 dark:bg-gray-800">
+                  <div class="text-lg font-semibold">{stat.value}</div>
+                  <div class="text-xs text-gray-500">{stat.label}</div>
+                </div>
+              )}
+            </For>
+          </div>
+        </Show>
 
         <div class="relative mb-6 rounded-md py-4">
           <h3 class="text-lg font-medium">
@@ -56,73 +84,28 @@ export const Home = () => {
       </Show>
 
       <div class="mb-4">
+        <Show when={!store.isSidePanel}>
+          <div class="mb-2 flex justify-end px-3 lg:px-0">
+            <button
+              class="inline-flex items-center gap-2 rounded-lg bg-purple-500 px-3 py-1.5 text-sm text-white hover:bg-purple-600 disabled:opacity-50"
+              disabled={store.isTagging}
+              onClick={(e) => {
+                e.stopPropagation()
+                smartTagging()
+              }}
+            >
+              <IconSparkles />
+              <span>{store.isTagging ? 'Organizing…' : 'AI Auto-Organize'}</span>
+            </button>
+          </div>
+        </Show>
         <Filter />
-        <For each={store.tweets}>
-          {(tweet, index) => (
-            <div class="rounded-md p-2 hover:bg-[#121212] hover:bg-opacity-5">
-              <div class="flex flex-shrink-0 pb-0">
-                <div class="flex w-full items-start">
-                  <div class="mr-2">
-                    <A href={`/?q=from:${tweet.screen_name}`}>
-                      <img
-                        class="inline-block h-10 w-10 rounded-full"
-                        src={tweet.avatar_url.replace('_normal', '_x96')}
-                        alt="avatar"
-                      />
-                    </A>
-                  </div>
-                  <p class="flex-1 cursor-pointer overflow-hidden overflow-ellipsis whitespace-nowrap text-base font-bold leading-6">
-                    <span data-text={`${Host}/${tweet.screen_name}/`}>
-                      {tweet.username}&nbsp;
-                    </span>
-                    <span class="ml-1 text-sm font-normal leading-5 text-[rgb(83,100,113)] dark:text-gray-500">
-                      <span data-text={`${Host}/${tweet.screen_name}/`}>
-                        @{tweet.screen_name} ·{' '}
-                      </span>
-                      <span
-                        class="dark:text-gray-500"
-                        data-text={`${Host}/${tweet.screen_name}/status/${tweet.tweet_id}`}
-                      >
-                        {new Date(tweet.created_at * 1000).toLocaleString()}
-                      </span>
-                    </span>
-                  </p>
-                  <Show when={!store.isSidePanel}>
-                    <div class="flex items-center justify-end gap-4 *:cursor-pointer">
-                      <span>
-                        <FolderSelect tweet={tweet} />
-                      </span>
-                      <span onClick={() => removeBookmark(tweet.tweet_id)}>
-                        <IconBookmark cls="h-5 w-5" />
-                      </span>
-                    </div>
-                  </Show>
-                </div>
-              </div>
-              <div class="-mt-2 pl-12 text-[rgb(15,20,25)] dark:text-white">
-                <Content tweet={tweet} keyword={store.keyword} />
-                <Show when={tweet.conversations}>
-                  <For each={tweet.conversations}>
-                    {(conversation) => (
-                      <Show when={conversation}>
-                        <Content tweet={conversation} />
-                      </Show>
-                    )}
-                  </For>
-                </Show>
-                <Show when={tweet.quoted_tweet}>
-                  <div class="relative inline-flex w-full items-center justify-center">
-                    <hr class="my-8 h-1 w-64 rounded border-0 bg-gray-200 dark:bg-gray-700" />
-                    <div class="absolute left-1/2 -translate-x-1/2 px-4">
-                      <IconQuote />
-                    </div>
-                  </div>
-                  <Content tweet={tweet.quoted_tweet} isQuoted={true} />
-                </Show>
-              </div>
-            </div>
-          )}
-        </For>
+        <TweetList
+          tweets={store.tweets}
+          keyword={store.keyword}
+          isSidePanel={store.isSidePanel}
+          showBookmarkAction={true}
+        />
         <Show
           when={store.hasMore}
           fallback={

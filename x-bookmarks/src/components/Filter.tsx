@@ -4,6 +4,7 @@ import dataStore, { isFilterVisible } from '../options/store'
 import { IconBookmark, IconFolders, IconTrash } from './Icons'
 import { allCategories } from '../constants'
 import { useNavigate } from '@solidjs/router'
+import { setActiveFolder } from '../stores/folders'
 
 export default function Filter() {
   const [store, setStore] = dataStore
@@ -26,9 +27,14 @@ export default function Filter() {
             </button>
           </Show>
           <Show when={store.folder}>
-            <button onClick={() => setStore('folder', '')} class={clsName}>
+            <button
+              onClick={() => {
+                setActiveFolder(null)
+              }}
+              class={clsName}
+            >
               <IconFolders cls="h-4 w-4" />
-              {store.folder}
+              {store.folder === 'Unsorted' ? 'Unsorted' : store.folder}
             </button>
           </Show>
           <Show when={store.keyword}>
@@ -40,9 +46,9 @@ export default function Filter() {
             onClick={() => {
               setStore({
                 category: '',
-                folder: '',
                 keyword: '',
               })
+              setActiveFolder(null)
               navigate('/')
             }}
           >

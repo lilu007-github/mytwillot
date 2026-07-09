@@ -8,6 +8,142 @@ export enum StorageKeys {
   Tasks = 'tasks',
   Uuid = 'uuid',
   Transaction_Id = 'transaction_id',
+  /**
+   * Map of GraphQL operation name -> persisted query id, captured live from
+   * x.com's own requests. Twitter rotates these ids, so the hardcoded values
+   * in `Endpoint` go stale and start returning 404. Capturing the ids that the
+   * user's own session uses keeps requests working across rotations.
+   * Stored globally (not per-user) since the ids are account-independent.
+   */
+  Query_Ids = 'graphql_query_ids',
+  /**
+   * Map of GraphQL operation name -> captured request template from x.com.
+   * Some persisted operations require the exact feature/variable shape that
+   * x.com used with the query id, so storing only the id is not enough.
+   */
+  Query_Request_Templates = 'graphql_request_templates',
+  Captured_Users_Updated = 'captured_users_updated',
+  Captured_Users_Debug = 'captured_users_debug',
+  Captured_Timeline_Updated = 'captured_timeline_updated',
+}
+
+export interface GraphQLRequestTemplate {
+  queryId: string
+  operationName: string
+  variables?: Record<string, any>
+  features?: Record<string, any>
+  fieldToggles?: Record<string, any>
+}
+
+/**
+ * Parse `https://x.com/i/api/graphql/{queryId}/{OperationName}?...` and persist
+ * the queryId for that operation. Called from the background webRequest
+ * listener for every GraphQL request x.com makes.
+ */
+export async function captureQueryIdFromUrl(url: string) {
+  const match = url.match(/\/i\/api\/graphql\/([^/]+)\/([^/?]+)/)
+  if (!match) {
+    return
+  }
+
+  const [, queryId, operationName] = match
+  if (!queryId || !operationName) {
+    return
+  }
+
+  const store = await chrome.storage.local.get(StorageKeys.Query_Ids)
+  const map: Record<string, string> = store[StorageKeys.Query_Ids] || {}
+  if (map[operationName] !== queryId) {
+    map[operationName] = queryId
+    await chrome.storage.local.set({ [StorageKeys.Query_Ids]: map })
+  }
+}
+
+export async function captureGraphQLRequestTemplateFromUrl(url: string) {
+  const match = url.match(/\/i\/api\/graphql\/([^/]+)\/([^/?]+)/)
+  if (!match) {
+    return
+  }
+
+  const [, queryId, operationName] = match
+  if (!queryId || !operationName) {
+    return
+  }
+
+  const requestTemplate = parseGraphQLRequestTemplate(
+    url,
+    queryId,
+    operationName,
+  )
+  if (!requestTemplate) {
+    return
+  }
+
+  const templateStore = await chrome.storage.local.get(
+    StorageKeys.Query_Request_Templates,
+  )
+  const templates: Record<string, GraphQLRequestTemplate> =
+    templateStore[StorageKeys.Query_Request_Templates] || {}
+
+  templates[operationName] = requestTemplate
+  await chrome.storage.local.set({
+    [StorageKeys.Query_Request_Templates]: templates,
+  })
+}
+
+export function parseGraphQLRequestTemplate(
+  url: string,
+  queryId: string,
+  operationName: string,
+): GraphQLRequestTemplate | null {
+  try {
+    const parsed = new URL(url)
+    const template: GraphQLRequestTemplate = {
+      queryId,
+      operationName,
+    }
+
+    for (const key of ['variables', 'features', 'fieldToggles'] as const) {
+      const value = parsed.searchParams.get(key)
+      if (value) {
+        template[key] = JSON.parse(value)
+      }
+    }
+
+    return template
+  } catch (err) {
+    console.warn('Failed to parse GraphQL request template', err)
+    return null
+  }
+}
+
+/**
+ * Return the live captured query id for an operation, or undefined if x.com
+ * hasn't made that request yet during this session.
+ */
+export async function getCapturedQueryId(
+  operationName: string,
+): Promise<string | undefined> {
+  if (!chrome.storage) {
+    return undefined
+  }
+  const store = await chrome.storage.local.get(StorageKeys.Query_Ids)
+  const map: Record<string, string> = store[StorageKeys.Query_Ids] || {}
+  return map[operationName]
+}
+
+export async function getCapturedGraphQLRequestTemplate(
+  operationName: string,
+): Promise<GraphQLRequestTemplate | undefined> {
+  if (!chrome.storage) {
+    return undefined
+  }
+  const store = await chrome.storage.local.get(
+    StorageKeys.Query_Request_Templates,
+  )
+  const templates: Record<string, GraphQLRequestTemplate> =
+    store[StorageKeys.Query_Request_Templates] || {}
+  return templates[operationName]
 }
 
 export async function getCurrentUserId(): Promise<string> {

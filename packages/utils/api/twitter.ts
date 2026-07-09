@@ -16,6 +16,7 @@ import {
 } from '../types'
 import { URL_REG } from '../text'
 import { FetchError } from '../xfetch'
+import { getCapturedQueryId } from '../storage'
 import { flatten, request } from './twitter-base'
 import {
   BOOKMARK_FEATURES,
@@ -23,12 +24,15 @@ import {
   USER_FEATURES,
 } from './twitter-features'
 
-function replaceWithExpandedUrl(text: string, urls: EntityURL[]) {
-  if (urls.length === 0) {
+function replaceWithExpandedUrl(text: string, urls?: EntityURL[]) {
+  if (!urls || urls.length === 0) {
     return text
   }
 
   for (let item of urls) {
+    if (!item?.url || !item?.expanded_url) {
+      continue
+    }
     text = text.replace(new RegExp(item.url, 'g'), item.expanded_url)
   }
 
@@ -55,19 +59,21 @@ function getTweetFields(tweet?: TweetUnion) {
     return null
   }
 
-  const user_legacy = tweet.core.user_results.result.legacy
+  const user_legacy = tweet.core?.user_results?.result?.legacy
+  if (!user_legacy) {
+    console.warn('no user_legacy', tweet.legacy?.id_str)
+    return null
+  }
   const entities = tweet.legacy.extended_entities || tweet.legacy.entities
   const media_items = entities?.media
   let full_text = ''
-  if (tweet.note_tweet) {
-    full_text = tweet.note_tweet.note_tweet_results.result.text
-    full_text = replaceWithExpandedUrl(
-      full_text,
-      tweet.note_tweet.note_tweet_results.result.entity_set.urls,
-    )
+  const note_result = tweet.note_tweet?.note_tweet_results?.result
+  if (note_result) {
+    full_text = note_result.text || ''
+    full_text = replaceWithExpandedUrl(full_text, note_result.entity_set?.urls)
   } else {
-    full_text = tweet.legacy.full_text
-    full_text = replaceWithExpandedUrl(full_text, tweet.legacy.entities.urls)
+    full_text = tweet.legacy.full_text || ''
+    full_text = replaceWithExpandedUrl(full_text, tweet.legacy.entities?.urls)
   }
 
   const is_reply = !!tweet.legacy.in_reply_to_status_id_str
@@ -83,7 +89,7 @@ function getTweetFields(tweet?: TweetUnion) {
     media_items,
     created_at: Math.floor(new Date(tweet.legacy.created_at).getTime() / 1000),
     lang: tweet.legacy.lang,
-    views_count: tweet.views.count || 0,
+    views_count: tweet.views?.count || 0,
     bookmark_count: tweet.legacy.bookmark_count,
     favorite_count: tweet.legacy.favorite_count,
     quote_count: tweet.legacy.quote_count,
@@ -111,6 +117,10 @@ export function toRecord(
   }
 
   const fields = getTweetFields(tweet_base)
+  if (!fields) {
+    console.log('no tweet fields', record)
+    return null
+  }
   const media_items = fields.media_items
   const has_quote = !!tweet_base.quoted_status_result?.result
 
@@ -512,5 +522,19 @@ export async function repostTweet(tweetId: string) {
       },
       queryId: EndpointQuery.CREATE_RETWEET,
     }),
+  })
+}
+
+export async function unfollowUser(userId: string) {
+  /**
+   * Twitter removed the UnfollowUser GraphQL mutation. The web app now uses
+   * the v1.1 REST endpoint for unfollowing.
+   */
+  return request('https://x.com/i/api/1.1/friendships/destroy.json', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: `user_id=${userId}`,
   })
 }

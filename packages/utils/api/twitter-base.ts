@@ -29,6 +29,91 @@ function get_headers(headers: {
   }
 }
 
+interface SerializedResponse {
+  status: number
+  headers: Record<string, string>
+  body: string
+}
+
+async function fetchFromXPageContext(
+  url: string,
+  options: RequestInit,
+): Promise<Response | null> {
+  if (!chrome?.scripting || !chrome?.tabs) {
+    return null
+  }
+
+  const tabs = await chrome.tabs.query({
+    url: ['https://x.com/*', 'https://*.x.com/*'],
+    currentWindow: true,
+  })
+  const tab =
+    tabs.find((item) => item.active && item.id !== undefined) ??
+    tabs.find(
+      (item) => item.url?.includes('/followers') && item.id !== undefined,
+    ) ??
+    tabs.find((item) => item.id !== undefined)
+  if (!tab?.id) {
+    console.warn('No x.com tab found for page-context request')
+    return null
+  }
+
+  let injectionResult: chrome.scripting.InjectionResult<SerializedResponse>[]
+  try {
+    injectionResult = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      args: [
+        url,
+        {
+          method: options.method || 'GET',
+          headers:
+            options.headers && Object.keys(options.headers).length > 0
+              ? options.headers
+              : null,
+          body: typeof options.body === 'string' ? options.body : null,
+        },
+      ],
+      func: async (
+        requestUrl: string,
+        requestOptions: {
+          method: string
+          headers: Record<string, string> | null
+          body: string | null
+        },
+      ): Promise<SerializedResponse> => {
+        const response = await fetch(requestUrl, {
+          method: requestOptions.method,
+          ...(requestOptions.headers
+            ? { headers: requestOptions.headers }
+            : {}),
+          body: requestOptions.body,
+          credentials: 'include',
+        })
+        return {
+          status: response.status,
+          headers: Object.fromEntries(response.headers.entries()),
+          body: await response.text(),
+        }
+      },
+    })
+  } catch (err) {
+    console.warn('Failed to fetch from x.com page context', err)
+    return null
+  }
+
+  const [{ result }] = injectionResult
+
+  if (!result) {
+    return null
+  }
+
+  return new Response(result.body, {
+    status: result.status,
+    headers: result.headers,
+  })
+}
+
 export function getRateLimitInfo(endpoint: Endpoint, uid: string) {
   if (!uid) {
     return null
@@ -37,29 +122,57 @@ export function getRateLimitInfo(endpoint: Endpoint, uid: string) {
   return rateLimitInfo[uid]?.[endpoint] || null
 }
 
-export async function request(url: string, options: RequestInit) {
-  // 页面中可以直接设置 headers
+export async function request(
+  url: string,
+  options: RequestInit,
+  requestOptions: { useXPageContext?: boolean } = {},
+) {
+  // x.com page-context requests should use the freshest headers captured from
+  // the page. Missing stored auth must not block page-context requests, but X's
+  // GraphQL endpoints still reject user-list requests without auth headers.
   if (!options.headers?.['authorization']) {
     const headers = await getAuthInfo()
-    if (!headers.token) {
+    if (!headers.token && !requestOptions.useXPageContext) {
       const error = new Error('No token found')
       error.name = FetchError.IdentityError
       throw error
     }
 
+    if (!headers.token) {
+      // Let the page-context fetch try with cookies only.
+      return requestWithOptions(url, options, requestOptions)
+    }
+
+    const authHeaders = get_headers(headers)
+    // Preserve caller-specified Content-Type (e.g. for form-urlencoded v1.1 endpoints)
+    if (options.headers?.['Content-Type']) {
+      delete authHeaders['Content-Type']
+    }
     options.headers = {
       ...options.headers,
-      ...get_headers(headers),
+      ...authHeaders,
     }
   }
+  return requestWithOptions(url, options, requestOptions)
+}
+
+async function requestWithOptions(
+  url: string,
+  options: RequestInit,
+  requestOptions: { useXPageContext?: boolean },
+) {
   if (options.body instanceof FormData) {
     delete options.headers['Content-Type']
   }
-  const res = await fetchWithTimeout(url, {
+  const requestInit = {
     method: 'POST',
     credentials: 'include',
     ...options,
-  })
+  } as RequestInit
+  const res =
+    (requestOptions.useXPageContext
+      ? await fetchFromXPageContext(url, requestInit)
+      : null) || (await fetchWithTimeout(url, requestInit))
   const uid = await getCurrentUserId()
   const reset = res.headers.get('X-Rate-Limit-Reset')
   if (uid) {
@@ -85,6 +198,17 @@ export async function request(url: string, options: RequestInit) {
   if (res.status === 429) {
     const error = new Error('Too many requests')
     error.name = FetchError.RateLimitError
+    throw error
+  }
+
+  // 404 means the persisted GraphQL query id is stale (Twitter rotated it).
+  // The body is empty, so attempting res.json() would throw a confusing
+  // "Unexpected end of JSON input". Surface a clear, actionable error instead.
+  if (res.status === 404) {
+    const error = new Error(
+      'This endpoint is unavailable. It may require X Premium, or the API has changed. Please try again later.',
+    )
+    error.name = FetchError.EndpointError
     throw error
   }
 

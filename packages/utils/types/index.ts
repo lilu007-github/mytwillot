@@ -6,6 +6,8 @@
 import { Media, TimelineTweet } from './tweet'
 import { TimelineTwitterList } from './list'
 import { TimelineUser } from './user'
+export * from './folder'
+export * from './tag'
 export * from './list'
 export * from './tweet'
 export * from './user'
@@ -51,8 +53,18 @@ export interface Tweet extends TweetQuoted {
   quoted_tweet?: TweetQuoted
   // 不可以属于多个文件夹
   folder?: string
+  // 数据类型：bookmarks / likes / posts / replies / media。
+  // 缺省视为 bookmarks（老数据由 backfillCategoryName 回填）。
+  category_name?: TweetCategory
   conversations: Tweet[]
 }
+
+export type TweetCategory =
+  | 'bookmarks'
+  | 'likes'
+  | 'posts'
+  | 'replies'
+  | 'media'
 
 export interface TweetQuoted {
   tweet_id: string
@@ -308,11 +320,12 @@ export enum EndpointQuery {
   USER_TWEETS_AND_REPLIES = 'bt4TKuFz4T7Ckk-VvQVSow',
   USER_MEDIA = 'dexO_2tohK86JDudXXG3Yw',
   USER_LIKES = 'aeJWz--kknVBOl7wQ7gh7Q',
-  FOLLOWERS = 'bTRZD3w3wQv72oNU3lV6Rw',
-  FOLLOWING = 'FG7gWUco2ITV3KDa4_XUHQ',
+  FOLLOWERS = 'OGScL-RC4DFMsRGOCjPR6g',
+  FOLLOWING = 'eWTmcJY3EMh-dxIR7CYTKw',
   LIKES = 'Ov0pT_9__tQmK-XIzOf7pQ',
-  FOLLOWERS_VERIFIED = 'hf2B_p-eEZQOrNF1brf50Q',
+  FOLLOWERS_VERIFIED = 'i1G8EqB9R3W86NBiA6P0NQ',
   LIKE_TWEET = 'lI07N6Otwv1PhnEgXILM7A',
+  UNFOLLOW = 'QY4RQp8Vk9SSbgMz1L6lRQ',
 }
 
 export enum Endpoint {
@@ -337,8 +350,8 @@ export enum Endpoint {
   FOLLOWING = `${BASE_PATH}${EndpointQuery.FOLLOWING}/Following`,
   LIKES = `${BASE_PATH}${EndpointQuery.LIKES}/Likes`,
   FOLLOWERS_VERIFIED = `${BASE_PATH}${EndpointQuery.FOLLOWERS_VERIFIED}/BlueVerifiedFollowers`,
-  LIKE_TWEET = `${BASE_PATH}${EndpointQuery.LIKE_TWEET}/FavoriteTweet
-`,
+  LIKE_TWEET = `${BASE_PATH}${EndpointQuery.LIKE_TWEET}/FavoriteTweet`,
+  UNFOLLOW = `${BASE_PATH}${EndpointQuery.UNFOLLOW}/UnfollowUser`,
 }
 
 export function getEndpoint(queryId: string, name: string): string {

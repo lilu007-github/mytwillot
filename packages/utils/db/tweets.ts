@@ -3,6 +3,7 @@ import { formatDate } from '../date'
 import { parseTwitterQuery } from '../query-parser'
 import { getCurrentUserId } from '../storage'
 import { openDb, getObjectStore, TWEETS_TABLE_NAME_V2 } from './index'
+import { requireActiveAccount } from './context-guard'
 
 const metadataFields =
   'views_count,bookmark_count,favorite_count,quote_count,reply_count,retweet_count,bookmarked,favorited,is_quote_status,retweeted'.split(
@@ -22,6 +23,7 @@ export async function upsertRecords(
   records: Tweet[],
   isUpdate = false,
 ): Promise<void> {
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
 
@@ -91,14 +93,71 @@ export async function upsertRecords(
   })
 }
 
+/**
+ * Upsert records that already have an explicit `id` (category records use a
+ * namespaced id like `likes_${owner}_${tweet}`). Unlike upsertRecords, this
+ * does NOT recompute the key from tweet_id, and it preserves user-authored
+ * fields (folder/tags/note/title, thread state) across re-captures.
+ */
+export async function upsertCategoryRecords(records: Tweet[]): Promise<void> {
+  await requireActiveAccount()
+  const db = await openDb()
+
+  return new Promise((resolve, reject) => {
+    const { transaction, objectStore } = getObjectStore(
+      db,
+      TWEETS_TABLE_NAME_V2,
+    )
+    transaction.oncomplete = () => resolve()
+    transaction.onerror = (event: Event) => {
+      reject(
+        'Transaction error: ' + (event.target as IDBRequest).error?.toString(),
+      )
+    }
+
+    records.forEach((record) => {
+      if (!record || !record.id) {
+        return
+      }
+      const getRequest = objectStore.get(record.id)
+      getRequest.onsuccess = () => {
+        const existing = getRequest.result
+        if (existing) {
+          record.folder = existing.folder
+          record.tags = existing.tags
+          record.note = existing.note
+          record.title = existing.title
+          if (typeof existing.is_thread === 'boolean') {
+            record.is_thread = existing.is_thread
+            record.conversations = existing.conversations
+          }
+        }
+        objectStore.put(record)
+      }
+    })
+  })
+}
+
 function meetsCriteria(
   tweet: Tweet,
   options: QueryOptions,
   category = '',
   folder = '',
   user_id = '',
+  dataType = 'bookmarks',
+  tag = '',
 ): boolean {
   if (tweet.owner_id !== user_id) {
+    return false
+  }
+
+  // Data type (bookmarks/likes/posts/replies/media). Legacy records without a
+  // category_name are treated as bookmarks. An empty dataType matches all.
+  if (dataType && (tweet.category_name || 'bookmarks') !== dataType) {
+    return false
+  }
+
+  if (tag && !(Array.isArray(tweet.tags) && tweet.tags.includes(tag))) {
     return false
   }
 
@@ -141,7 +200,10 @@ export async function findRecords(
   folder = '',
   lastId = '',
   pageSize = 100,
+  dataType = 'bookmarks',
+  tag = '',
 ): Promise<Tweet[]> {
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
   const options = parseTwitterQuery(keyword)
@@ -167,7 +229,15 @@ export async function findRecords(
       if (cursor) {
         const tweet = cursor.value as Tweet
         if (isStartLooking) {
-          const met = meetsCriteria(tweet, options, category, folder, user_id)
+          const met = meetsCriteria(
+            tweet,
+            options,
+            category,
+            folder,
+            user_id,
+            dataType,
+            tag,
+          )
           if (met) {
             recordsFetched++
             if (recordsFetched <= pageSize) {
@@ -204,6 +274,7 @@ export async function getRecord(tweetId: string): Promise<Tweet | undefined> {
     return Promise.resolve(undefined)
   }
 
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
   const key = getPostId(user_id, tweetId)
@@ -229,6 +300,7 @@ export async function deleteRecord(id: string): Promise<Tweet | undefined> {
     return Promise.resolve(undefined)
   }
 
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
   const key = getPostId(user_id, id)
@@ -245,6 +317,129 @@ export async function deleteRecord(id: string): Promise<Tweet | undefined> {
         'Get record error: ' + (event.target as IDBRequest).error?.toString(),
       )
     }
+  })
+}
+
+/**
+ * Get all tweet_ids for the current user's records.
+ * Used to compare local state against server state during full sync.
+ */
+export async function getAllTweetIds(): Promise<string[]> {
+  const db = await openDb()
+  const user_id = await getCurrentUserId()
+  if (!user_id) {
+    return []
+  }
+
+  return new Promise((resolve, reject) => {
+    const { objectStore } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
+    const index = objectStore.index('owner_id')
+    const range = IDBKeyRange.only(user_id)
+    const request = index.openCursor(range)
+    const ids: string[] = []
+
+    request.onsuccess = (event: Event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
+      if (cursor) {
+        ids.push(cursor.value.tweet_id)
+        cursor.continue()
+      } else {
+        resolve(ids)
+      }
+    }
+
+    request.onerror = (event: Event) => {
+      reject(
+        'Failed to get tweet ids: ' +
+          (event.target as IDBRequest).error?.toString(),
+      )
+    }
+  })
+}
+
+/**
+ * Delete multiple records by their tweet_ids for the current user.
+ * Used to remove bookmarks that were deleted on the server during sync.
+ */
+export async function deleteRecordsByTweetIds(
+  tweetIds: string[],
+): Promise<number> {
+  if (!tweetIds.length) {
+    return 0
+  }
+
+  const db = await openDb()
+  const user_id = await getCurrentUserId()
+
+  return new Promise((resolve, reject) => {
+    const { objectStore, transaction } = getObjectStore(
+      db,
+      TWEETS_TABLE_NAME_V2,
+    )
+    let deleted = 0
+
+    transaction.oncomplete = () => {
+      resolve(deleted)
+    }
+
+    transaction.onerror = (event: Event) => {
+      reject(
+        'Transaction error: ' + (event.target as IDBRequest).error?.toString(),
+      )
+    }
+
+    tweetIds.forEach((tweetId) => {
+      const key = getPostId(user_id, tweetId)
+      const request = objectStore.delete(key)
+      request.onsuccess = () => {
+        deleted++
+      }
+    })
+  })
+}
+
+/**
+ * One-time backfill: tag any existing record that has no `category_name` as
+ * `'bookmarks'`. Runs outside the onupgradeneeded transaction (which must stay
+ * light) and is guarded by a storage flag so it only runs once per user.
+ *
+ * Rationale: IndexedDB indexes skip records whose indexed field is `undefined`,
+ * so legacy bookmarks would not appear when querying by category until backfilled.
+ */
+export async function backfillCategoryName(): Promise<number> {
+  const db = await openDb()
+  const user_id = await getCurrentUserId()
+  if (!user_id) {
+    return 0
+  }
+
+  return new Promise((resolve, reject) => {
+    const { objectStore, transaction } = getObjectStore(
+      db,
+      TWEETS_TABLE_NAME_V2,
+    )
+    const index = objectStore.index('owner_id')
+    const request = index.openCursor(IDBKeyRange.only(user_id))
+    let updated = 0
+
+    request.onsuccess = (event: Event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
+      if (cursor) {
+        const record = cursor.value as Tweet
+        if (!record.category_name) {
+          record.category_name = 'bookmarks'
+          cursor.update(record)
+          updated++
+        }
+        cursor.continue()
+      }
+    }
+
+    transaction.oncomplete = () => resolve(updated)
+    transaction.onerror = (event: Event) =>
+      reject(
+        'Backfill error: ' + (event.target as IDBRequest).error?.toString(),
+      )
   })
 }
 

@@ -1,6 +1,144 @@
-import { Endpoint, TimelineInstructions } from '../types'
+import { Endpoint, TimelineInstructions, getEndpoint } from '../types'
 import { flatten, request } from './twitter-base'
-import { COMMON_FEATURES } from './twitter-features'
+import {
+  COMMON_FEATURES,
+  FOLLOWERS_FEATURES,
+  FOLLOWERS_FIELD_TOGGLES,
+} from './twitter-features'
+import {
+  getCapturedGraphQLRequestTemplate,
+  getCapturedQueryId,
+  parseGraphQLRequestTemplate,
+  type GraphQLRequestTemplate,
+} from '../storage'
+
+/**
+ * Resolve the endpoint URL for a GraphQL operation, preferring the query id
+ * captured live from x.com (Twitter rotates these ids, breaking hardcoded
+ * values). Falls back to the hardcoded `Endpoint` value when nothing has been
+ * captured yet.
+ */
+async function resolveEndpoint(
+  operationName: string,
+  fallback: Endpoint,
+): Promise<string> {
+  const captured = await getCapturedQueryId(operationName)
+  return captured ? getEndpoint(captured, operationName) : fallback
+}
+
+async function buildUserListRequest(
+  operationName: 'Followers' | 'Following',
+  fallback: Endpoint,
+  userId: string,
+  cursor?: string,
+): Promise<string> {
+  const template =
+    (await getSuccessfulPageRequestTemplate(operationName)) ??
+    (await getCapturedGraphQLRequestTemplate(operationName))
+  const endpoint = template
+    ? getEndpoint(template.queryId, operationName)
+    : await resolveEndpoint(operationName, fallback)
+
+  const query = flatten({
+    variables: buildUserListVariables(template, userId, cursor),
+    features: template?.features ?? FOLLOWERS_FEATURES,
+    ...(template
+      ? template.fieldToggles
+        ? { fieldToggles: template.fieldToggles }
+        : {}
+      : { fieldToggles: FOLLOWERS_FIELD_TOGGLES }),
+  })
+
+  return `${endpoint}?${query}`
+}
+
+async function getSuccessfulPageRequestTemplate(
+  operationName: 'Followers' | 'Following',
+): Promise<GraphQLRequestTemplate | undefined> {
+  if (!chrome?.scripting || !chrome?.tabs) {
+    return undefined
+  }
+
+  const tabs = await chrome.tabs.query({
+    url: ['https://x.com/*', 'https://*.x.com/*'],
+    currentWindow: true,
+  })
+  const tab =
+    tabs.find((item) => item.active && item.url?.includes(`/${operationName.toLowerCase()}`)) ??
+    tabs.find((item) => item.url?.includes(`/${operationName.toLowerCase()}`)) ??
+    tabs.find((item) => item.active) ??
+    tabs[0]
+
+  if (!tab?.id) {
+    return undefined
+  }
+
+  try {
+    const [{ result }] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      world: 'MAIN',
+      args: [operationName],
+      func: (name: 'Followers' | 'Following') => {
+        return performance
+          .getEntriesByType('resource')
+          .filter((entry) => entry.name.includes(`/i/api/graphql/`) && entry.name.includes(`/${name}?`))
+          .map((entry: PerformanceResourceTiming) => ({
+            name: entry.name,
+            startTime: entry.startTime,
+            responseStatus: (entry as any).responseStatus,
+            transferSize: entry.transferSize,
+            encodedBodySize: entry.encodedBodySize,
+          }))
+          .filter((entry) => entry.responseStatus !== 404)
+          .filter((entry) => entry.responseStatus === undefined || entry.responseStatus === 200)
+          .filter((entry) => entry.transferSize > 0 || entry.encodedBodySize > 0)
+          .sort((a, b) => b.startTime - a.startTime)
+          .at(0)?.name
+      },
+    })
+
+    if (!result) {
+      return undefined
+    }
+
+    const match = result.match(/\/i\/api\/graphql\/([^/]+)\/([^/?]+)/)
+    if (!match) {
+      return undefined
+    }
+
+    const [, queryId, capturedOperationName] = match
+    if (capturedOperationName !== operationName) {
+      return undefined
+    }
+
+    return parseGraphQLRequestTemplate(result, queryId, capturedOperationName) ?? undefined
+  } catch (err) {
+    console.warn('Failed to read x.com GraphQL performance entries', err)
+    return undefined
+  }
+}
+
+function buildUserListVariables(
+  template: GraphQLRequestTemplate | undefined,
+  userId: string,
+  cursor?: string,
+) {
+  const variables = {
+    ...(template?.variables ?? {
+      count: 100,
+      includePromotedContent: false,
+    }),
+    userId,
+  }
+
+  if (cursor) {
+    variables.cursor = cursor
+  } else {
+    delete variables.cursor
+  }
+
+  return variables
+}
 
 export interface UserDataResponse {
   data: {
@@ -189,22 +327,34 @@ export async function getLikes(userId: string, cursor?: string) {
 }
 
 export async function getFollowers(userId: string, cursor?: string) {
-  const variables = {
-    cursor: '',
+  const url = await buildUserListRequest(
+    'Followers',
+    Endpoint.FOLLOWERS,
     userId,
-    count: 100,
-    includePromotedContent: true,
-  }
-  if (cursor) {
-    variables.cursor = cursor
-  }
-  const query = flatten({
-    variables,
-    features: COMMON_FEATURES,
-  })
-  const json = await request(`${Endpoint.FOLLOWERS}?${query}`, {
+    cursor,
+  )
+  const json = await request(url, {
     body: null,
     method: 'GET',
+  }, {
+    useXPageContext: true,
+  })
+
+  return json as FollowersResponse
+}
+
+export async function getFollowing(userId: string, cursor?: string) {
+  const url = await buildUserListRequest(
+    'Following',
+    Endpoint.FOLLOWING,
+    userId,
+    cursor,
+  )
+  const json = await request(url, {
+    body: null,
+    method: 'GET',
+  }, {
+    useXPageContext: true,
   })
 
   return json as FollowersResponse

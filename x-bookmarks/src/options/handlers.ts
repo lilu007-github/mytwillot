@@ -16,9 +16,12 @@ import {
   iterate,
   countRecords,
   deleteRecord,
+  deleteRecordsByTweetIds,
+  getAllTweetIds,
   findRecords,
   getRencentTweets,
   getTopUsers,
+  backfillCategoryName,
 } from 'utils/db/tweets'
 import { FetchError } from 'utils/xfetch'
 import {
@@ -44,6 +47,7 @@ import {
 import dataStore, { mutateStore } from './store'
 import { getLevel, getLicense, MemberLevel } from 'utils/license'
 import { PRICING_URL } from '~/libs/member'
+import { classifyTweet, getAISettings } from 'utils/ai/classify'
 
 // Wrap the sleep function
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -57,10 +61,20 @@ async function query(
   lastId = '',
   limit = 100,
   append = false,
+  dataType = 'bookmarks',
+  tag = '',
 ) {
   const [store, setStore] = dataStore
   const start = new Date().getTime()
-  const tweets = await findRecords(keyword, category, folder, lastId, limit)
+  const tweets = await findRecords(
+    keyword,
+    category,
+    folder,
+    lastId,
+    limit,
+    dataType,
+    tag,
+  )
   setStore('hasMore', tweets.length === limit)
   if (append) {
     if (tweets.length > 0) {
@@ -85,12 +99,36 @@ export async function queryByCondition(append = false) {
     append ? tweets[tweets.length - 1]?.tweet_id || '' : '',
     store.pageSize,
     append,
+    store.dataType,
+    store.tag,
   )
+}
+
+/**
+ * One-time backfill (DB v23): tag legacy records lacking category_name as
+ * 'bookmarks'. Guarded by a global storage flag so it only runs once.
+ */
+async function runCategoryBackfill() {
+  const FLAG = 'twillot_category_backfilled_v23'
+  try {
+    const existing = await chrome.storage.local.get(FLAG)
+    if (existing[FLAG]) {
+      return
+    }
+    const updated = await backfillCategoryName()
+    await chrome.storage.local.set({ [FLAG]: Date.now() })
+    if (updated > 0) {
+      console.log(`Backfilled category_name on ${updated} legacy records`)
+    }
+  } catch (err) {
+    console.error('category_name backfill failed', err)
+  }
 }
 
 export async function initSync() {
   const [store, setStore] = dataStore
   try {
+    await runCategoryBackfill()
     /**
      * 可能之前已经同步过数据
      */
@@ -226,6 +264,9 @@ export async function* syncAllBookmarks(forceSync = false) {
   let cursor: string | undefined = forceSync
     ? (await getLocal(StorageKeys.Bookmark_Cursor))[StorageKeys.Bookmark_Cursor]
     : undefined
+  // Track all tweet_ids received from the server during a full sync
+  // to detect server-side deletions
+  const serverTweetIds: Set<string> = new Set()
   while (true) {
     const json = await getBookmarks(cursor)
     const instruction =
@@ -255,8 +296,28 @@ export async function* syncAllBookmarks(forceSync = false) {
 
       // 有可能被删除
       const docs = tweets
-        .map((i) => toRecord(i.content.itemContent, i.sortIndex))
+        .map((i) => {
+          try {
+            return toRecord(i.content.itemContent, i.sortIndex)
+          } catch (err) {
+            console.error('Failed to parse bookmark, skipping', err, i)
+            return null
+          }
+        })
         .filter((t) => t && del_ids.includes(t.tweet_id) === false)
+
+      // Tag every bookmark record so it is retrievable by category_name.
+      docs.forEach((t) => {
+        if (t) t.category_name = 'bookmarks'
+      })
+
+      // Track server-side tweet IDs during full sync
+      if (forceSync) {
+        docs.forEach((t) => {
+          if (t) serverTweetIds.add(t.tweet_id)
+        })
+      }
+
       await upsertRecords(docs)
       yield docs
     }
@@ -268,6 +329,22 @@ export async function* syncAllBookmarks(forceSync = false) {
       }
     } else {
       break
+    }
+  }
+
+  // After a full sync completes, remove local records that no longer exist on the server
+  if (forceSync && serverTweetIds.size > 0) {
+    try {
+      const localTweetIds = await getAllTweetIds()
+      const staleIds = localTweetIds.filter((id) => !serverTweetIds.has(id))
+      if (staleIds.length > 0) {
+        const deleted = await deleteRecordsByTweetIds(staleIds)
+        console.log(
+          `Removed ${deleted} bookmarks deleted on server during sync`,
+        )
+      }
+    } catch (err) {
+      console.error('Failed to clean up server-side deletions', err)
     }
   }
 }
@@ -380,7 +457,6 @@ export function resetQuery() {
   setStore({
     keyword: '',
     category: '',
-    folder: '',
   })
 }
 
@@ -419,23 +495,20 @@ export async function removeBookmark(tweetId: string) {
 
 export async function smartTagging() {
   const [store, setStore] = dataStore
-  const license = await getLicense()
-  const level = getLevel(license)
-  const isFree = level === MemberLevel.Free
-
-  if (isFree) {
-    alert('Please upgrade to a paid plan to continue AI auto organizing')
-    await sleep(3000)
-    await chrome.tabs.create({
-      url: PRICING_URL,
-    })
-    setStore('isTagging', false)
-    return
-  }
 
   const uid = await getCurrentUserId()
   if (!uid) {
     alert('Please login to use AI auto organizing')
+    return
+  }
+
+  const settings = await getAISettings()
+  if (!settings.apiKey) {
+    alert(
+      'Add your AI API key in Settings to use AI auto organizing. ' +
+        'Your key is stored locally and sent directly to your chosen provider.',
+    )
+    location.hash = '#/settings'
     return
   }
 
@@ -446,104 +519,77 @@ export async function smartTagging() {
   }
 
   if (store.isTagging) {
-    // 暂时不允许暂停
-    // setStore('isTagging', false)
-    // console.log('Stopping AI tagging process')
     return
   }
 
-  const dailyMax = level === MemberLevel.Pro ? 500 : 200
+  // Cap a single run so a huge library doesn't spend unboundedly.
+  const maxTweets = 1000
   let offset = 0
-  let reqCount = 0
-  let isLimited = false
+  let processed = 0
   setStore('isTagging', true)
 
-  for (let i = 0; i < dailyMax; i++) {
-    // server error
-    if (isLimited) {
-      setStore('isTagging', false)
-      alert('AI auto organizing is temporarily limited, please try again later')
-      break
-    }
-
+  while (processed < maxTweets && store.isTagging) {
+    let tweets: typeof store.tweets
     try {
       // 只查询 null 或 undefined，设置为空表示 ai 分类过但是找不到对应文件夹
-      const tweets = await iterate(
+      tweets = await iterate(
         (t) => typeof t.folder !== 'string',
         BATCH_SIZE,
         offset,
       )
-      if (tweets.length === 0) {
-        console.log('No more unclassified tweets')
-        await sleep(60000)
-        continue
-      }
-
-      offset += tweets.length
-
-      for (const tweet of tweets) {
-        if (!store.isTagging) {
-          break
-        }
-
-        try {
-          /**
-           * Supply more text to parse
-           */
-          const text = tweet.quoted_tweet
-            ? tweet.full_text + '\n' + tweet.quoted_tweet.full_text
-            : tweet.full_text
-          const res = await fetch(API_HOST + '/classify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Request-Id': btoa(
-                JSON.stringify({
-                  reqCount,
-                  uid,
-                  timestamp: Date.now(),
-                  level,
-                  license,
-                }),
-              ),
-            },
-            body: JSON.stringify({
-              tweetText: text,
-              folders: folders,
-            }),
-          })
-          // 服务端限流时，暂时不用限制客户端
-          if (res.status === 429) {
-            console.log('Rate limit exceeded')
-            isLimited = true
-            break
-          }
-
-          const json = await res.json()
-          const folder = json.data.folder
-          tweet.folder = folder
-          await upsertRecords([tweet], true)
-          if (folder) {
-            mutateStore((state) => {
-              const folderItem = state.folders.find((f) => f.name === folder)
-              if (folderItem) {
-                state.totalCount.unsorted -= 1
-                folderItem.count += 1
-              }
-            })
-          }
-
-          console.log(`Tweet ${tweet.tweet_id} classified into ${folder}`)
-        } catch (error) {
-          console.error(`Error classifying tweet ${tweet.tweet_id}:`, error)
-        }
-
-        reqCount += 1
-
-        await sleep(3000)
-      }
     } catch (error) {
       console.error('Error fetching unclassified tweets:', error)
+      break
+    }
+
+    if (tweets.length === 0) {
+      console.log('No more unclassified tweets')
+      break
+    }
+    offset += tweets.length
+
+    for (const tweet of tweets) {
+      if (!store.isTagging) {
+        break
+      }
+
+      try {
+        const text = tweet.quoted_tweet
+          ? tweet.full_text + '\n' + tweet.quoted_tweet.full_text
+          : tweet.full_text
+
+        const folder = await classifyTweet({ text, folders, settings })
+        // Persist even when '' so we don't re-classify tweets that fit nowhere.
+        tweet.folder = folder
+        await upsertRecords([tweet], true)
+        if (folder) {
+          mutateStore((state) => {
+            const folderItem = state.folders.find((f) => f.name === folder)
+            if (folderItem && state.totalCount) {
+              state.totalCount.unsorted -= 1
+              folderItem.count += 1
+            }
+          })
+        }
+        console.log(`Tweet ${tweet.tweet_id} classified into ${folder || '—'}`)
+      } catch (error: any) {
+        if (error?.name === 'RateLimitedError') {
+          setStore('isTagging', false)
+          alert('Your AI provider is rate limiting requests. Try again later.')
+          return
+        }
+        if (error?.message === 'missing-api-key') {
+          setStore('isTagging', false)
+          location.hash = '#/settings'
+          return
+        }
+        console.error(`Error classifying tweet ${tweet.tweet_id}:`, error)
+      }
+
+      processed += 1
+      await sleep(400)
     }
   }
+
+  setStore('isTagging', false)
 }

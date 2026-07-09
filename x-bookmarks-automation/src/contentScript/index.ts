@@ -1,4 +1,6 @@
-import { getLocal, setCurrentUserId } from 'utils/storage'
+import { parseTwidCookie } from 'utils/cookie-parser'
+import { detectAndSetActiveAccount } from 'utils/account-manager'
+import { getLocal } from 'utils/storage'
 import {
   createTweet,
   getTweetConversations,
@@ -34,13 +36,12 @@ function addRandomZeroWidthSpaces(text: string, count: number): string {
   return Math.random() < 0.5 ? `${spaces}${text}` : `${text}${spaces}`
 }
 
-for (const item of document.cookie.split(';')) {
-  const [key, value] = item.split('=')
-  if (key.includes('twid')) {
-    setCurrentUserId(value.replace('u%3D', ''))
-    break
-  }
-}
+const cookies = document.cookie.split(';')
+const twidCookie = cookies.find((c) => c.trim().startsWith('twid='))
+const twidValue = twidCookie?.split('=').slice(1).join('=')?.trim()
+const userId = parseTwidCookie(twidValue)
+
+detectAndSetActiveAccount(userId)
 
 /**
  * NOTE:HMR 无效

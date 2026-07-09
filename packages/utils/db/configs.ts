@@ -1,6 +1,7 @@
 import { Config, OptionName } from '../types'
 import { getCurrentUserId } from '../storage'
 import { openDb, getObjectStore, CONFIGS_TABLE_NAME_V2 } from './index'
+import { requireActiveAccount } from './context-guard'
 
 export function getConfigId(user_id: string, name: OptionName) {
   if (!user_id || !name) {
@@ -15,6 +16,7 @@ export async function upsertConfig(config: {
   option_name: OptionName
   option_value: any
 }) {
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
   const { objectStore } = getObjectStore(db, CONFIGS_TABLE_NAME_V2)
@@ -34,6 +36,7 @@ export async function upsertConfig(config: {
 
 // 读取配置项
 export async function readConfig(optionName: OptionName) {
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
   const { objectStore } = getObjectStore(db, CONFIGS_TABLE_NAME_V2)
@@ -46,6 +49,7 @@ export async function readConfig(optionName: OptionName) {
 
 // 删除配置项
 export async function deleteConfig(optionName: OptionName) {
+  await requireActiveAccount()
   const db = await openDb()
   const user_id = await getCurrentUserId()
   const { objectStore } = getObjectStore(db, CONFIGS_TABLE_NAME_V2)
