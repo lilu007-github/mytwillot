@@ -184,15 +184,20 @@ function meetsCriteria(
   )
 }
 
-function getRange(since?: number, until?: number): IDBKeyRange | null {
-  if (since && until) {
-    return IDBKeyRange.bound(since, until)
-  } else if (since) {
-    return IDBKeyRange.lowerBound(since)
-  } else if (until) {
-    return IDBKeyRange.upperBound(until)
-  }
-  return null
+/**
+ * Owner-scoped key range for the compound indexes ([owner_id, X]).
+ * `[user_id]` sorts before any `[user_id, x]`, and an empty array as the
+ * second component sorts after every number/string, so the two sentinels
+ * bound exactly this account's slice of the index.
+ */
+function getOwnerRange(
+  user_id: string,
+  since?: number | null,
+  until?: number | null,
+): IDBKeyRange {
+  const lower = since ? [user_id, since] : [user_id]
+  const upper = until ? [user_id, until] : [user_id, []]
+  return IDBKeyRange.bound(lower, upper)
 }
 
 /**
@@ -220,12 +225,14 @@ export async function findRecords(
   const until = options.until
     ? Math.floor(new Date(options.until + ' 23:59:59').getTime() / 1000)
     : null
-  const indexName = since || until ? 'created_at' : 'sort_index' // 选择索引
+  // Compound owner-scoped indexes: iterate only this account's records, in
+  // index order, instead of scanning the whole store.
+  const indexName = since || until ? 'owner_created' : 'owner_sort'
 
   return new Promise((resolve, reject) => {
     const { objectStore } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
     const index = objectStore.index(indexName)
-    const range = getRange(since, until) // 创建时间范围
+    const range = getOwnerRange(user_id, since, until)
     const request = index.openCursor(range, 'prev')
 
     request.onsuccess = (event: Event) => {
@@ -464,14 +471,6 @@ export async function countRecords(
 
   return new Promise((resolve, reject) => {
     const { objectStore } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
-    let request
-    if (indexName) {
-      const index = objectStore.index(indexName)
-      const keyRange = IDBKeyRange.only(value)
-      request = index.count(keyRange)
-    } else {
-      request = objectStore.count()
-    }
     const counts = {
       total: 0,
       // 不属于任何文件夹
@@ -483,45 +482,49 @@ export async function countRecords(
       quote: 0,
       long_text: 0,
     }
-    request.onsuccess = async (event: Event) => {
-      const total = (event.target as IDBRequest<number>).result
-      if (indexName) {
-        counts.total = total
+
+    if (indexName) {
+      const index = objectStore.index(indexName)
+      const request = index.count(IDBKeyRange.only(value))
+      request.onsuccess = (event: Event) => {
+        counts.total = (event.target as IDBRequest<number>).result
         resolve(counts)
+      }
+      request.onerror = (event: Event) => {
+        reject(
+          'Count records error: ' +
+            (event.target as IDBRequest).error?.toString(),
+        )
+      }
+      return
+    }
+
+    // Scan only the active account's records via the owner_id index instead
+    // of walking the whole store and filtering in JS.
+    const cursorRequest = objectStore
+      .index('owner_id')
+      .openCursor(IDBKeyRange.only(user_id))
+    cursorRequest.onsuccess = (cursorEvent: Event) => {
+      const cursor = (cursorEvent.target as IDBRequest<IDBCursorWithValue>)
+        .result
+      if (cursor) {
+        const record = cursor.value
+        counts.total++
+        if (record.has_image) counts.image++
+        if (record.has_video) counts.video++
+        if (record.has_gif) counts.gif++
+        if (record.has_link) counts.link++
+        if (record.has_quote) counts.quote++
+        if (record.is_long_text) counts.long_text++
+        if (!record.folder) counts.unsorted++
+        cursor.continue()
       } else {
-        const cursorRequest = objectStore.openCursor()
-        cursorRequest.onsuccess = (cursorEvent: Event) => {
-          const cursor = (cursorEvent.target as IDBRequest<IDBCursorWithValue>)
-            .result
-          if (cursor) {
-            const record = cursor.value
-            if (record.owner_id === user_id) {
-              counts.total++
-              if (record.has_image) counts.image++
-              if (record.has_video) counts.video++
-              if (record.has_gif) counts.gif++
-              if (record.has_link) counts.link++
-              if (record.has_quote) counts.quote++
-              if (record.is_long_text) counts.long_text++
-              if (!record.folder) counts.unsorted++
-            }
-            cursor.continue()
-          } else {
-            resolve(counts)
-          }
-        }
-        cursorRequest.onerror = (cursorEvent: Event) => {
-          reject(
-            'Cursor error: ' +
-              (cursorEvent.target as IDBRequest).error?.toString(),
-          )
-        }
+        resolve(counts)
       }
     }
-    request.onerror = (event: Event) => {
+    cursorRequest.onerror = (cursorEvent: Event) => {
       reject(
-        'Count records error: ' +
-          (event.target as IDBRequest).error?.toString(),
+        'Cursor error: ' + (cursorEvent.target as IDBRequest).error?.toString(),
       )
     }
   })
@@ -539,25 +542,24 @@ export async function aggregateUsers(): Promise<
 
   return new Promise((resolve, reject) => {
     const { objectStore } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
-    const index = objectStore.index('sort_index')
-    const request = index.openCursor()
+    // Order is irrelevant for aggregation — scope to the account directly.
+    const index = objectStore.index('owner_id')
+    const request = index.openCursor(IDBKeyRange.only(user_id))
 
     request.onsuccess = (event) => {
       const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
       if (cursor) {
         const record = cursor.value
-        if (record.owner_id === user_id) {
-          const userId = record.screen_name
-          if (!userInfo[userId]) {
-            userInfo[userId] = {
-              avatar_url: record.avatar_url,
-              username: record.username,
-              screen_name: record.screen_name,
-              count: 0,
-            }
+        const userId = record.screen_name
+        if (!userInfo[userId]) {
+          userInfo[userId] = {
+            avatar_url: record.avatar_url,
+            username: record.username,
+            screen_name: record.screen_name,
+            count: 0,
           }
-          userInfo[userId].count += 1
         }
+        userInfo[userId].count += 1
         cursor.continue()
       } else {
         resolve(userInfo)
@@ -583,11 +585,11 @@ export async function getRencentTweets(days: number): Promise<{
   const user_id = await getCurrentUserId()
   return new Promise((resolve, reject) => {
     const { objectStore } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
-    const index = objectStore.index('created_at')
+    const index = objectStore.index('owner_created')
     const oneYearAgo = Math.floor(
       (Date.now() - days * 24 * 60 * 60 * 1000) / 1000,
     )
-    const range = IDBKeyRange.lowerBound(oneYearAgo)
+    const range = getOwnerRange(user_id, oneYearAgo, null)
     const request = index.openCursor(range)
     const dateCounts: { [key: string]: number } = {}
     let total = 0
@@ -596,14 +598,12 @@ export async function getRencentTweets(days: number): Promise<{
       const cursor = request.result
       if (cursor) {
         const tweet = cursor.value
-        if (tweet.owner_id === user_id) {
-          const date = formatDate(new Date(tweet.created_at * 1000))
-          total += 1
-          if (dateCounts[date]) {
-            dateCounts[date] += 1
-          } else {
-            dateCounts[date] = 1
-          }
+        const date = formatDate(new Date(tweet.created_at * 1000))
+        total += 1
+        if (dateCounts[date]) {
+          dateCounts[date] += 1
+        } else {
+          dateCounts[date] = 1
         }
         cursor.continue()
       } else {
@@ -715,20 +715,19 @@ export async function iterate(
 
   return new Promise((resolve, reject) => {
     const { objectStore } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
-    const index = objectStore.index('sort_index')
-    const request = index.openCursor(null, 'prev')
+    // Owner-scoped ordered scan: only this account's records, newest first.
+    const index = objectStore.index('owner_sort')
+    const request = index.openCursor(getOwnerRange(user_id), 'prev')
 
     request.onsuccess = (event) => {
       const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
       if (cursor && total < limit) {
         const record = cursor.value
-        if (record.owner_id === user_id) {
-          if (filter(record) === true) {
-            mateched += 1
-            if (mateched > offset) {
-              total += 1
-              records.push(record)
-            }
+        if (filter(record) === true) {
+          mateched += 1
+          if (mateched > offset) {
+            total += 1
+            records.push(record)
           }
         }
         cursor.continue()

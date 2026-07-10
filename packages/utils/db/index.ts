@@ -3,7 +3,7 @@ import { getCurrentUserId } from '../storage'
 import { getConfigId } from './configs'
 import { getPostId } from './tweets'
 
-export const DB_VERSION = 23
+export const DB_VERSION = 24
 
 export const DB_NAME = 'twillot'
 
@@ -62,6 +62,21 @@ indexFields.push({
     multiEntry: true,
   },
 })
+// Compound indexes (v24): hot-path reads range-scan a single account's
+// records in index order instead of walking the whole store and filtering
+// owner_id in JS.
+indexFields.push(
+  {
+    name: 'owner_sort',
+    keyPath: ['owner_id', 'sort_index'],
+    options: { unique: false, multiEntry: false },
+  },
+  {
+    name: 'owner_created',
+    keyPath: ['owner_id', 'created_at'],
+    options: { unique: false, multiEntry: false },
+  },
+)
 
 let user_id = ''
 

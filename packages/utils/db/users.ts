@@ -118,9 +118,9 @@ export async function getUsersByRelationship(
  * Follow edges [source, target] passively captured into the users table,
  * restricted to a given id set (typically the people you follow). A row
  * {owner_id: A, relationship: 'following', rest_id: B} means "A follows B",
- * captured whenever you browsed A's Following tab on x.com. One full-store
- * scan; the table also holds your own follower/following rows which are simply
- * filtered out unless both endpoints are in `ids`.
+ * captured whenever you browsed A's Following tab on x.com. Scans only the
+ * 'following' slice via the relationship index; rows outside `ids` (your own
+ * lists, other browsed profiles) are filtered out.
  */
 export async function getFollowEdgesAmong(
   ids: Set<string>,
@@ -130,7 +130,9 @@ export async function getFollowEdgesAmong(
 
   return new Promise((resolve, reject) => {
     const edges: Array<[string, string]> = []
-    const request = objectStore.openCursor()
+    const request = objectStore
+      .index('relationship')
+      .openCursor(IDBKeyRange.only('following'))
     request.onsuccess = (event) => {
       const cursor = (event.target as IDBRequest).result
       if (!cursor) {
@@ -138,11 +140,7 @@ export async function getFollowEdgesAmong(
         return
       }
       const v = cursor.value as StoredUser
-      if (
-        v.relationship === 'following' &&
-        ids.has(v.owner_id) &&
-        ids.has(v.rest_id)
-      ) {
+      if (ids.has(v.owner_id) && ids.has(v.rest_id)) {
         edges.push([v.owner_id, v.rest_id])
       }
       cursor.continue()
