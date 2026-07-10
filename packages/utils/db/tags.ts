@@ -240,16 +240,20 @@ export async function getTagCounts(): Promise<Record<string, number>> {
   const { objectStore } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
   return new Promise((resolve, reject) => {
     const counts: Record<string, number> = {}
-    const index = objectStore.index('tags')
-    const request = index.openCursor()
+    // Scan only this account's records via the owner_id index; each record is
+    // visited once and its tags counted in JS (the multiEntry tags index would
+    // walk one entry per tag across every account).
+    const request = objectStore
+      .index('owner_id')
+      .openCursor(IDBKeyRange.only(ownerId))
     request.onsuccess = (event) => {
       const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
       if (cursor) {
-        const record = cursor.value
-        // multiEntry cursor yields one entry per tag value; cursor.key is the tag
-        if (record.owner_id === ownerId) {
-          const tag = cursor.key as string
-          counts[tag] = (counts[tag] || 0) + 1
+        const tags = cursor.value.tags
+        if (Array.isArray(tags)) {
+          for (const tag of tags) {
+            counts[tag] = (counts[tag] || 0) + 1
+          }
         }
         cursor.continue()
       } else {
