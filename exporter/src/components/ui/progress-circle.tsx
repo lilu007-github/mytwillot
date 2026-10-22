@@ -1,19 +1,19 @@
-import type { Component, ComponentProps } from "solid-js"
-import { mergeProps, splitProps } from "solid-js"
+import type { Component, ComponentProps } from 'solid-js'
+import { mergeProps, splitProps } from 'solid-js'
 
-import { cn } from "~/lib/utils"
+import { cn } from '~/lib/utils'
 
-type Size = "xs" | "sm" | "md" | "lg" | "xl"
+type Size = 'xs' | 'sm' | 'md' | 'lg' | 'xl'
 
 const sizes: Record<Size, { radius: number; strokeWidth: number }> = {
   xs: { radius: 15, strokeWidth: 3 },
   sm: { radius: 19, strokeWidth: 4 },
   md: { radius: 32, strokeWidth: 6 },
   lg: { radius: 52, strokeWidth: 8 },
-  xl: { radius: 80, strokeWidth: 10 }
+  xl: { radius: 80, strokeWidth: 10 },
 }
 
-type ProgressCircleProps = ComponentProps<"div"> & {
+type ProgressCircleProps = ComponentProps<'div'> & {
   value?: number
   size?: Size
   radius?: number
@@ -22,15 +22,18 @@ type ProgressCircleProps = ComponentProps<"div"> & {
 }
 
 const ProgressCircle: Component<ProgressCircleProps> = (rawProps) => {
-  const props = mergeProps({ size: "md" as Size, showAnimation: true }, rawProps)
+  const props = mergeProps(
+    { size: 'md' as Size, showAnimation: true },
+    rawProps,
+  )
   const [local, others] = splitProps(props, [
-    "class",
-    "children",
-    "value",
-    "size",
-    "radius",
-    "strokeWidth",
-    "showAnimation"
+    'class',
+    'children',
+    'value',
+    'size',
+    'radius',
+    'strokeWidth',
+    'showAnimation',
   ])
 
   const value = () => getLimitedValue(local.value)
@@ -42,7 +45,10 @@ const ProgressCircle: Component<ProgressCircleProps> = (rawProps) => {
   const offset = () => circumference() - strokeDashoffset()
 
   return (
-    <div class={cn("flex flex-col items-center justify-center", local.class)} {...others}>
+    <div
+      class={cn('flex flex-col items-center justify-center', local.class)}
+      {...others}
+    >
       <svg
         width={radius() * 2}
         height={radius() * 2}
@@ -57,7 +63,7 @@ const ProgressCircle: Component<ProgressCircleProps> = (rawProps) => {
           fill="transparent"
           stroke=""
           stroke-linecap="round"
-          class={cn("stroke-secondary transition-colors ease-linear")}
+          class={cn('stroke-secondary transition-colors ease-linear')}
         />
         {value() >= 0 ? (
           <circle
@@ -65,19 +71,21 @@ const ProgressCircle: Component<ProgressCircleProps> = (rawProps) => {
             cx={radius()}
             cy={radius()}
             stroke-width={strokeWidth()}
-            stroke-dasharray={circumference() + " " + circumference()}
+            stroke-dasharray={circumference() + ' ' + circumference()}
             stroke-dashoffset={offset()}
             fill="transparent"
             stroke=""
             stroke-linecap="round"
             class={cn(
-              "stroke-primary transition-colors ease-linear",
-              local.showAnimation ? "transition-all duration-300 ease-in-out" : ""
+              'stroke-primary transition-colors ease-linear',
+              local.showAnimation
+                ? 'transition-all duration-300 ease-in-out'
+                : '',
             )}
           />
         ) : null}
       </svg>
-      <div class={cn("absolute flex")}>{local.children}</div>
+      <div class={cn('absolute flex')}>{local.children}</div>
     </div>
   )
 }

@@ -24,9 +24,7 @@ describe('context-guard', () => {
 
     it('throws NoActiveAccountError when account ID is empty string', async () => {
       await setCurrentUserId('')
-      await expect(requireActiveAccount()).rejects.toThrow(
-        NoActiveAccountError,
-      )
+      await expect(requireActiveAccount()).rejects.toThrow(NoActiveAccountError)
       await expect(requireActiveAccount()).rejects.toThrow(
         'No active account detected',
       )
@@ -34,9 +32,7 @@ describe('context-guard', () => {
 
     it('throws NoActiveAccountError when account ID is not set', async () => {
       await chrome.storage.local.clear()
-      await expect(requireActiveAccount()).rejects.toThrow(
-        NoActiveAccountError,
-      )
+      await expect(requireActiveAccount()).rejects.toThrow(NoActiveAccountError)
     })
   })
 

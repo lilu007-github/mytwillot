@@ -25,9 +25,10 @@ export default function ObsidianRest() {
   )
   const [saved, setSaved] = createSignal(false)
   const [testing, setTesting] = createSignal(false)
-  const [testMsg, setTestMsg] = createSignal<{ ok: boolean; text: string } | null>(
-    null,
-  )
+  const [testMsg, setTestMsg] = createSignal<{
+    ok: boolean
+    text: string
+  } | null>(null)
   const [pushing, setPushing] = createSignal(false)
   const [progress, setProgress] = createSignal<RestPushProgress | null>(null)
   const [result, setResult] = createSignal<string | null>(null)

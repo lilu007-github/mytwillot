@@ -74,9 +74,7 @@ const UserGrid: Component<UserGridProps> = (props) => {
           </span>
         )
       default: {
-        const value = (user as unknown as Record<string, unknown>)[
-          col.key
-        ]
+        const value = (user as unknown as Record<string, unknown>)[col.key]
         return (
           <span class="text-sm text-gray-900">
             {value != null ? String(value) : ''}
@@ -95,12 +93,7 @@ const UserGrid: Component<UserGridProps> = (props) => {
       </Show>
 
       <Show when={!props.error}>
-        <Show
-          when={
-            !props.isLoading &&
-            props.users.length === 0
-          }
-        >
+        <Show when={!props.isLoading && props.users.length === 0}>
           <div class="flex items-center justify-center rounded-md border border-gray-200 bg-gray-50 p-6">
             <p class="text-sm text-gray-500">No users found</p>
           </div>
@@ -162,9 +155,7 @@ const UserGrid: Component<UserGridProps> = (props) => {
                     </td>
                     <For each={visibleColumns()}>
                       {(col) => (
-                        <td class="px-3 py-2">
-                          {renderCell(user, col)}
-                        </td>
+                        <td class="px-3 py-2">{renderCell(user, col)}</td>
                       )}
                     </For>
                   </tr>

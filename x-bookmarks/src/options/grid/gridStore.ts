@@ -83,8 +83,7 @@ export const setIsLoading = (isLoading: boolean) =>
 
 export const setError = (error: string | null) => setGridState('error', error)
 
-export const refreshData = () =>
-  setGridState('dataVersion', (v) => v + 1)
+export const refreshData = () => setGridState('dataVersion', (v) => v + 1)
 
 export const mutateGridStore = (fn: (state: GridState) => void) =>
   setGridState(produce(fn))

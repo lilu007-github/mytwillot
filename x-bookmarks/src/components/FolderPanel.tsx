@@ -29,7 +29,9 @@ export default function FolderPanel(props: FolderPanelProps) {
   const [editName, setEditName] = createSignal('')
 
   // Build a nested tree from the flat parent_id list.
-  const tree = createMemo<TreeNode[]>(() => buildFolderTree(folderState.folders))
+  const tree = createMemo<TreeNode[]>(() =>
+    buildFolderTree(folderState.folders),
+  )
 
   const handleCreate = async (e: Event) => {
     e.preventDefault()
@@ -237,7 +239,10 @@ export default function FolderPanel(props: FolderPanelProps) {
           </ul>
 
           {/* Create folder form */}
-          <form class="flex w-full items-center p-1 pl-11" onSubmit={handleCreate}>
+          <form
+            class="flex w-full items-center p-1 pl-11"
+            onSubmit={handleCreate}
+          >
             <input
               type="text"
               class="w-full rounded border border-gray-300 px-2 py-1 text-sm placeholder-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:placeholder-gray-500"

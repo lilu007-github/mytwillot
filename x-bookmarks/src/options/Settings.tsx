@@ -77,9 +77,7 @@ export default function Settings() {
               type="password"
               autocomplete="off"
               class="w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm dark:border-gray-600 dark:bg-gray-700"
-              placeholder={
-                provider() === 'anthropic' ? 'sk-ant-...' : 'sk-...'
-              }
+              placeholder={provider() === 'anthropic' ? 'sk-ant-...' : 'sk-...'}
               value={apiKey()}
               onInput={(e) => setApiKey(e.currentTarget.value)}
             />

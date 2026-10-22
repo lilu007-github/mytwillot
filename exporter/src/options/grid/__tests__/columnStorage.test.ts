@@ -2,10 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import 'webextension-polyfill'
 
 import { COLUMN_PREF_KEY, DEFAULT_COLUMNS } from '../types'
-import {
-  loadColumnPreferences,
-  saveColumnPreferences,
-} from '../columnStorage'
+import { loadColumnPreferences, saveColumnPreferences } from '../columnStorage'
 
 const allVisibleDefaults = (): Record<string, boolean> =>
   Object.fromEntries(DEFAULT_COLUMNS.map((col) => [col.key, true]))
@@ -62,9 +59,7 @@ describe('columnStorage', () => {
       saveColumnPreferences.flush()
 
       await vi.waitFor(async () => {
-        const stored = await chrome.storage.local.get(
-          COLUMN_PREF_KEY,
-        )
+        const stored = await chrome.storage.local.get(COLUMN_PREF_KEY)
         expect(stored[COLUMN_PREF_KEY]).toEqual(prefs)
       })
     })
@@ -78,9 +73,7 @@ describe('columnStorage', () => {
       saveColumnPreferences.flush()
 
       await vi.waitFor(async () => {
-        const stored = await chrome.storage.local.get(
-          COLUMN_PREF_KEY,
-        )
+        const stored = await chrome.storage.local.get(COLUMN_PREF_KEY)
         // Only the last call should be persisted
         expect(stored[COLUMN_PREF_KEY]).toEqual(prefs2)
       })

@@ -37,9 +37,7 @@ const UnfollowDialog: Component<UnfollowDialogProps> = (props) => {
     } else if (successCount === 0) {
       alert(`Failed to unfollow ${failedIds.length} user(s).`)
     } else {
-      alert(
-        `Unfollowed ${successCount} user(s), ${failedIds.length} failed.`,
-      )
+      alert(`Unfollowed ${successCount} user(s), ${failedIds.length} failed.`)
     }
 
     props.onComplete(failedIds)

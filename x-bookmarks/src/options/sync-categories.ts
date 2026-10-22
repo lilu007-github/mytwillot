@@ -1,6 +1,11 @@
 import { createStore, produce } from 'solid-js/store'
 
-import { getPosts, getReplies, getMedia, getLikes } from 'utils/api/twitter-user'
+import {
+  getPosts,
+  getReplies,
+  getMedia,
+  getLikes,
+} from 'utils/api/twitter-user'
 import { parseTimelineToRecords } from 'utils/api/timeline-parse'
 import { upsertCategoryRecords } from 'utils/db/tweets'
 import { getRateLimitInfo } from 'utils/api/twitter-base'

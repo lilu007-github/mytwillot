@@ -42,9 +42,7 @@ export function useGridData(): void {
           setIsLoading(false)
         } catch (err) {
           const message =
-            err instanceof Error
-              ? err.message
-              : 'Failed to load user data'
+            err instanceof Error ? err.message : 'Failed to load user data'
           setError(message)
           setIsLoading(false)
         }

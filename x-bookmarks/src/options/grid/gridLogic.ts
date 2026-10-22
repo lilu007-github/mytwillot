@@ -48,13 +48,10 @@ export function sortUsers(
     if (numericColumns.includes(column)) {
       cmp = (aVal as number) - (bVal as number)
     } else if (textColumns.includes(column)) {
-      cmp = String(aVal)
-        .toLowerCase()
-        .localeCompare(String(bVal).toLowerCase())
+      cmp = String(aVal).toLowerCase().localeCompare(String(bVal).toLowerCase())
     } else if (dateColumns.includes(column)) {
       cmp =
-        new Date(aVal as string).getTime() -
-        new Date(bVal as string).getTime()
+        new Date(aVal as string).getTime() - new Date(bVal as string).getTime()
     } else if (booleanColumns.includes(column)) {
       const aBool = aVal === true ? 1 : 0
       const bBool = bVal === true ? 1 : 0

@@ -21,10 +21,12 @@ export const arbStoredUser: fc.Arbitrary<StoredUser> = fc.record({
   statuses_count: fc.nat({ max: 10_000_000 }),
   is_blue_verified: fc.boolean(),
   location: fc.string({ minLength: 0, maxLength: 30 }),
-  created_at: fc.integer({
-    min: new Date('2006-03-21').getTime(),
-    max: new Date('2025-01-01').getTime(),
-  }).map((ts) => new Date(ts).toISOString()),
+  created_at: fc
+    .integer({
+      min: new Date('2006-03-21').getTime(),
+      max: new Date('2025-01-01').getTime(),
+    })
+    .map((ts) => new Date(ts).toISOString()),
   synced_at: fc.nat({ max: 2_000_000_000_000 }),
 })
 

@@ -3,7 +3,11 @@ import { detectAndSetActiveAccount } from 'utils/account-manager'
 import { StorageKeys } from 'utils/storage'
 
 const CAPTURE_SOURCE = 'twillot:x-graphql-response'
-const USER_OPERATIONS = new Set(['Followers', 'Following', 'BlueVerifiedFollowers'])
+const USER_OPERATIONS = new Set([
+  'Followers',
+  'Following',
+  'BlueVerifiedFollowers',
+])
 
 document.documentElement.dataset.twillotCaptureBridge = 'loading'
 setCaptureDebug('content-script-loaded')

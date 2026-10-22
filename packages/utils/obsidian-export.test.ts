@@ -78,7 +78,12 @@ describe('obsidianNote', () => {
 describe('buildObsidianUri', () => {
   it('encodes vault, file (no .md) and content', () => {
     const uri = buildObsidianUri(
-      { screen_name: 'paulg', tweet_id: '5', full_text: 'hi', folder: 'Reading' },
+      {
+        screen_name: 'paulg',
+        tweet_id: '5',
+        full_text: 'hi',
+        folder: 'Reading',
+      },
       'MyVault',
     )
     expect(uri.startsWith('obsidian://new?')).toBe(true)
@@ -128,8 +133,12 @@ describe('createZip', () => {
     ])
     expect(bytes.length).toBeGreaterThan(0)
     // Local file header magic: PK\x03\x04
-    expect([bytes[0], bytes[1], bytes[2], bytes[3]]).toEqual([0x50, 0x4b, 0x03, 0x04])
+    expect([bytes[0], bytes[1], bytes[2], bytes[3]]).toEqual([
+      0x50, 0x4b, 0x03, 0x04,
+    ])
     // EOCD magic at the tail: PK\x05\x06
-    expect([bytes[bytes.length - 22], bytes[bytes.length - 21]]).toEqual([0x50, 0x4b])
+    expect([bytes[bytes.length - 22], bytes[bytes.length - 21]]).toEqual([
+      0x50, 0x4b,
+    ])
   })
 })

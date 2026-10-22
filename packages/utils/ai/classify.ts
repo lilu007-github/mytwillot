@@ -98,18 +98,21 @@ async function classifyOpenAI(
   folders: string[],
   settings: AISettings,
 ): Promise<string> {
-  const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${settings.apiKey}`,
+  const res = await fetchWithTimeout(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${settings.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        max_tokens: 20,
+        messages: [{ role: 'user', content: buildPrompt(text, folders) }],
+      }),
     },
-    body: JSON.stringify({
-      model: settings.model,
-      max_tokens: 20,
-      messages: [{ role: 'user', content: buildPrompt(text, folders) }],
-    }),
-  })
+  )
   if (res.status === 429) {
     throw new RateLimitedError()
   }
@@ -224,18 +227,21 @@ async function summarizeOpenAI(
   text: string,
   settings: AISettings,
 ): Promise<TweetSummary> {
-  const res = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${settings.apiKey}`,
+  const res = await fetchWithTimeout(
+    'https://api.openai.com/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${settings.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        max_tokens: 200,
+        messages: [{ role: 'user', content: buildSummaryPrompt(text) }],
+      }),
     },
-    body: JSON.stringify({
-      model: settings.model,
-      max_tokens: 200,
-      messages: [{ role: 'user', content: buildSummaryPrompt(text) }],
-    }),
-  })
+  )
   if (res.status === 429) throw new RateLimitedError()
   if (!res.ok) throw new Error(`OpenAI API error ${res.status}`)
   const json = await res.json()

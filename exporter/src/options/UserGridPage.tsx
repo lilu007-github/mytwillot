@@ -47,17 +47,13 @@ export default function UserGridPage() {
     computeTotalPages(gridState.totalCount, gridState.pageSize),
   )
 
-  const pageUserIds = createMemo(() =>
-    gridState.users.map((u) => u.id),
-  )
+  const pageUserIds = createMemo(() => gridState.users.map((u) => u.id))
 
   const headerCheckboxState = createMemo(() =>
     getHeaderCheckboxState(pageUserIds(), gridState.selectedIds),
   )
 
-  const selectedIdsSet = createMemo(() =>
-    new Set(gridState.selectedIds),
-  )
+  const selectedIdsSet = createMemo(() => new Set(gridState.selectedIds))
 
   // Persist column visibility changes
   createEffect(
@@ -70,9 +66,7 @@ export default function UserGridPage() {
     ),
   )
 
-  const handleRelationshipChange = (
-    value: 'follower' | 'following',
-  ) => {
+  const handleRelationshipChange = (value: 'follower' | 'following') => {
     setRelationship(value)
   }
 
@@ -81,10 +75,7 @@ export default function UserGridPage() {
   }
 
   const handleColumnToggle = (columnKey: string) => {
-    const updated = applyColumnToggle(
-      gridState.columnVisibility,
-      columnKey,
-    )
+    const updated = applyColumnToggle(gridState.columnVisibility, columnKey)
     setColumnVisibility(updated)
   }
 
@@ -141,9 +132,7 @@ export default function UserGridPage() {
       setSelectedIds([])
     } else {
       const failedSet = new Set(result.failed)
-      setSelectedIds(
-        gridState.selectedIds.filter((id) => failedSet.has(id)),
-      )
+      setSelectedIds(gridState.selectedIds.filter((id) => failedSet.has(id)))
     }
   }
 
@@ -152,9 +141,7 @@ export default function UserGridPage() {
       setSelectedIds([])
     } else {
       const failedSet = new Set(failedIds)
-      setSelectedIds(
-        gridState.selectedIds.filter((id) => failedSet.has(id)),
-      )
+      setSelectedIds(gridState.selectedIds.filter((id) => failedSet.has(id)))
     }
   }
 
@@ -165,10 +152,7 @@ export default function UserGridPage() {
           value={gridState.relationship}
           onChange={handleRelationshipChange}
         />
-        <SearchInput
-          value={gridState.keyword}
-          onSearch={handleSearch}
-        />
+        <SearchInput value={gridState.keyword} onSearch={handleSearch} />
         <div class="ml-auto">
           <ColumnConfig
             columns={DEFAULT_COLUMNS}

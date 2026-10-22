@@ -78,9 +78,7 @@ export default function Gallery() {
           disabled={downloading() || items().length === 0}
           onClick={downloadAll}
         >
-          {downloading()
-            ? 'Downloading…'
-            : `Download all (${items().length})`}
+          {downloading() ? 'Downloading…' : `Download all (${items().length})`}
         </button>
       </div>
 

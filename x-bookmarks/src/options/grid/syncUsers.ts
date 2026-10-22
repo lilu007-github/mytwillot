@@ -111,9 +111,7 @@ export async function syncUsers(
           'Syncing followers requires an X Premium account. The Following tab works without premium.',
         )
       } else {
-        alert(
-          'This endpoint is currently unavailable. Please try again later.',
-        )
+        alert('This endpoint is currently unavailable. Please try again later.')
       }
     } else {
       console.error('Sync error:', err)

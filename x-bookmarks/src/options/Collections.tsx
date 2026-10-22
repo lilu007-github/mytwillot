@@ -41,7 +41,9 @@ export default function Collections() {
   const rolledCount = (name: string): number =>
     rollCount(name, folderState.folders, folderState.folderCounts)
 
-  const tree = createMemo<TreeNode[]>(() => buildFolderTree(folderState.folders))
+  const tree = createMemo<TreeNode[]>(() =>
+    buildFolderTree(folderState.folders),
+  )
 
   const openFolder = (name: string) => {
     // Pre-set so the filter applies instantly; Layout also reads ?folder=.

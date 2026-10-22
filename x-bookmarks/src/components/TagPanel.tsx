@@ -1,12 +1,7 @@
 import { createSignal, For, Show } from 'solid-js'
 
 import { TAG_COLORS } from 'utils/types'
-import {
-  tagState,
-  createTag,
-  deleteTag,
-  setTagColor,
-} from '../stores/tags'
+import { tagState, createTag, deleteTag, setTagColor } from '../stores/tags'
 import dataStore from '../options/store'
 import { IconTag, IconTrash } from './Icons'
 
@@ -58,7 +53,11 @@ export default function TagPanel(props: TagPanelProps) {
           stroke="currentColor"
           stroke-width="2"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            d="M19 9l-7 7-7-7"
+          />
         </svg>
       </button>
 
@@ -119,7 +118,10 @@ export default function TagPanel(props: TagPanelProps) {
           </Show>
 
           {/* Create tag form */}
-          <form class="flex w-full items-center gap-1 p-1 pl-11" onSubmit={handleCreate}>
+          <form
+            class="flex w-full items-center gap-1 p-1 pl-11"
+            onSubmit={handleCreate}
+          >
             <span
               class="h-4 w-4 shrink-0 cursor-pointer rounded-full"
               style={{ 'background-color': newColor() }}

@@ -116,7 +116,10 @@ export async function testObsidianRest(
       return { ok: false, message: 'Reachable, but the API key was rejected' }
     }
     const version = data?.versions?.self
-    return { ok: true, message: version ? `Connected (v${version})` : 'Connected' }
+    return {
+      ok: true,
+      message: version ? `Connected (v${version})` : 'Connected',
+    }
   } catch (e: any) {
     return {
       ok: false,

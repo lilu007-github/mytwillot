@@ -150,8 +150,8 @@ export default function Circles() {
         <h2 class="text-xl font-semibold">Circles</h2>
         <Show when={data()}>
           <span class="text-sm opacity-60">
-            {data()!.following.length} following · {data()!.edges.length} internal
-            follow edges
+            {data()!.following.length} following · {data()!.edges.length}{' '}
+            internal follow edges
           </span>
         </Show>
       </div>
@@ -214,7 +214,10 @@ export default function Circles() {
                 {(circle) => (
                   <div class="rounded-xl border border-gray-200 p-4 dark:border-gray-700">
                     <div class="mb-3 flex items-center">
-                      <span class="flex-1 truncate font-medium" title={circle.label}>
+                      <span
+                        class="flex-1 truncate font-medium"
+                        title={circle.label}
+                      >
                         {circle.label}
                       </span>
                       <span class="ms-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs dark:bg-gray-800">

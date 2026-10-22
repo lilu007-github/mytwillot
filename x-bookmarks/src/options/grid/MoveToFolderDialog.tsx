@@ -1,10 +1,7 @@
 import { type Component, For, Show, createSignal } from 'solid-js'
 
 import Modal from '~/components/Modal'
-import {
-  folderState,
-  moveEntitiesToFolder,
-} from '~/stores/folders'
+import { folderState, moveEntitiesToFolder } from '~/stores/folders'
 
 export interface MoveToFolderDialogProps {
   open: boolean

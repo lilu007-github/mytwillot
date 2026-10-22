@@ -12,10 +12,7 @@ import {
   computeResetPage,
   applyColumnToggle,
 } from '../gridLogic'
-import {
-  loadColumnPreferences,
-  saveColumnPreferences,
-} from '../columnStorage'
+import { loadColumnPreferences, saveColumnPreferences } from '../columnStorage'
 import { COLUMN_PREF_KEY } from '../types'
 import type { SortState } from '../types'
 import { arbStoredUser, arbStoredUserList, arbRelationship } from './generators'
@@ -28,21 +25,20 @@ const NUM_RUNS = 100
  * with the constraint that at least one value is true.
  */
 const columnVisibilityArb = fc
-  .dictionary(
-    fc.stringMatching(/^[a-z][a-z0-9_]{0,9}$/),
-    fc.boolean(),
-    { minKeys: 1, maxKeys: 10 },
-  )
+  .dictionary(fc.stringMatching(/^[a-z][a-z0-9_]{0,9}$/), fc.boolean(), {
+    minKeys: 1,
+    maxKeys: 10,
+  })
   .filter((obj) => Object.values(obj).some(Boolean))
 
 /**
  * Arbitrary: generates a column visibility record where exactly one column is visible.
  */
 const singleVisibleColumnArb = fc
-  .array(
-    fc.stringMatching(/^[a-z][a-z0-9_]{0,9}$/),
-    { minLength: 1, maxLength: 10 },
-  )
+  .array(fc.stringMatching(/^[a-z][a-z0-9_]{0,9}$/), {
+    minLength: 1,
+    maxLength: 10,
+  })
   .chain((keys) => {
     const uniqueKeys = [...new Set(keys)]
     if (uniqueKeys.length === 0) return fc.constant(null)
@@ -126,12 +122,14 @@ describe('Feature: user-grid-view', () => {
     it('navigating forward from currentPage < totalPages increments by 1', () => {
       fc.assert(
         fc.property(
-          fc.integer({ min: 2, max: 1000 }).chain((total) =>
-            fc.tuple(
-              fc.integer({ min: 1, max: total - 1 }),
-              fc.constant(total),
+          fc
+            .integer({ min: 2, max: 1000 })
+            .chain((total) =>
+              fc.tuple(
+                fc.integer({ min: 1, max: total - 1 }),
+                fc.constant(total),
+              ),
             ),
-          ),
           ([current, total]) => {
             const result = navigatePage(current, total, 'next')
             expect(result).toBe(current + 1)
@@ -144,12 +142,11 @@ describe('Feature: user-grid-view', () => {
     it('navigating backward from currentPage > 1 decrements by 1', () => {
       fc.assert(
         fc.property(
-          fc.integer({ min: 2, max: 1000 }).chain((total) =>
-            fc.tuple(
-              fc.integer({ min: 2, max: total }),
-              fc.constant(total),
+          fc
+            .integer({ min: 2, max: 1000 })
+            .chain((total) =>
+              fc.tuple(fc.integer({ min: 2, max: total }), fc.constant(total)),
             ),
-          ),
           ([current, total]) => {
             const result = navigatePage(current, total, 'prev')
             expect(result).toBe(current - 1)
@@ -161,26 +158,20 @@ describe('Feature: user-grid-view', () => {
 
     it('navigation is a no-op at the last page for next', () => {
       fc.assert(
-        fc.property(
-          fc.integer({ min: 1, max: 1000 }),
-          (total) => {
-            const result = navigatePage(total, total, 'next')
-            expect(result).toBe(total)
-          },
-        ),
+        fc.property(fc.integer({ min: 1, max: 1000 }), (total) => {
+          const result = navigatePage(total, total, 'next')
+          expect(result).toBe(total)
+        }),
         { numRuns: NUM_RUNS },
       )
     })
 
     it('navigation is a no-op at page 1 for prev', () => {
       fc.assert(
-        fc.property(
-          fc.integer({ min: 1, max: 1000 }),
-          (total) => {
-            const result = navigatePage(1, total, 'prev')
-            expect(result).toBe(1)
-          },
-        ),
+        fc.property(fc.integer({ min: 1, max: 1000 }), (total) => {
+          const result = navigatePage(1, total, 'prev')
+          expect(result).toBe(1)
+        }),
         { numRuns: NUM_RUNS },
       )
     })
@@ -192,26 +183,20 @@ describe('Feature: user-grid-view', () => {
      */
     it('returns 1 when stateChanged is true', () => {
       fc.assert(
-        fc.property(
-          fc.integer({ min: 1, max: 1000 }),
-          (currentPage) => {
-            const result = computeResetPage(true, currentPage)
-            expect(result).toBe(1)
-          },
-        ),
+        fc.property(fc.integer({ min: 1, max: 1000 }), (currentPage) => {
+          const result = computeResetPage(true, currentPage)
+          expect(result).toBe(1)
+        }),
         { numRuns: NUM_RUNS },
       )
     })
 
     it('returns currentPage when stateChanged is false', () => {
       fc.assert(
-        fc.property(
-          fc.integer({ min: 1, max: 1000 }),
-          (currentPage) => {
-            const result = computeResetPage(false, currentPage)
-            expect(result).toBe(currentPage)
-          },
-        ),
+        fc.property(fc.integer({ min: 1, max: 1000 }), (currentPage) => {
+          const result = computeResetPage(false, currentPage)
+          expect(result).toBe(currentPage)
+        }),
         { numRuns: NUM_RUNS },
       )
     })
@@ -222,7 +207,11 @@ describe('Feature: user-grid-view', () => {
      * Validates: Requirements 4.1, 4.2, 4.7
      */
     it('ascending sort on numeric columns produces non-decreasing order', () => {
-      const numericColumns = ['followers_count', 'friends_count', 'statuses_count']
+      const numericColumns = [
+        'followers_count',
+        'friends_count',
+        'statuses_count',
+      ]
 
       fc.assert(
         fc.property(
@@ -233,8 +222,12 @@ describe('Feature: user-grid-view', () => {
             const sorted = sortUsers(users, sort)
 
             for (let i = 1; i < sorted.length; i++) {
-              const prev = (sorted[i - 1] as unknown as Record<string, number>)[column]
-              const curr = (sorted[i] as unknown as Record<string, number>)[column]
+              const prev = (sorted[i - 1] as unknown as Record<string, number>)[
+                column
+              ]
+              const curr = (sorted[i] as unknown as Record<string, number>)[
+                column
+              ]
               expect(prev).toBeLessThanOrEqual(curr)
             }
           },
@@ -244,7 +237,11 @@ describe('Feature: user-grid-view', () => {
     })
 
     it('descending sort on numeric columns produces non-increasing order', () => {
-      const numericColumns = ['followers_count', 'friends_count', 'statuses_count']
+      const numericColumns = [
+        'followers_count',
+        'friends_count',
+        'statuses_count',
+      ]
 
       fc.assert(
         fc.property(
@@ -255,8 +252,12 @@ describe('Feature: user-grid-view', () => {
             const sorted = sortUsers(users, sort)
 
             for (let i = 1; i < sorted.length; i++) {
-              const prev = (sorted[i - 1] as unknown as Record<string, number>)[column]
-              const curr = (sorted[i] as unknown as Record<string, number>)[column]
+              const prev = (sorted[i - 1] as unknown as Record<string, number>)[
+                column
+              ]
+              const curr = (sorted[i] as unknown as Record<string, number>)[
+                column
+              ]
               expect(prev).toBeGreaterThanOrEqual(curr)
             }
           },
@@ -319,38 +320,32 @@ describe('Feature: user-grid-view', () => {
 
     it('ascending sort on date column produces chronological order', () => {
       fc.assert(
-        fc.property(
-          arbStoredUserList(2, 50),
-          (users) => {
-            const sort: SortState = { column: 'created_at', direction: 'asc' }
-            const sorted = sortUsers(users, sort)
+        fc.property(arbStoredUserList(2, 50), (users) => {
+          const sort: SortState = { column: 'created_at', direction: 'asc' }
+          const sorted = sortUsers(users, sort)
 
-            for (let i = 1; i < sorted.length; i++) {
-              const prev = new Date(sorted[i - 1].created_at).getTime()
-              const curr = new Date(sorted[i].created_at).getTime()
-              expect(prev).toBeLessThanOrEqual(curr)
-            }
-          },
-        ),
+          for (let i = 1; i < sorted.length; i++) {
+            const prev = new Date(sorted[i - 1].created_at).getTime()
+            const curr = new Date(sorted[i].created_at).getTime()
+            expect(prev).toBeLessThanOrEqual(curr)
+          }
+        }),
         { numRuns: NUM_RUNS },
       )
     })
 
     it('descending sort on date column produces reverse chronological order', () => {
       fc.assert(
-        fc.property(
-          arbStoredUserList(2, 50),
-          (users) => {
-            const sort: SortState = { column: 'created_at', direction: 'desc' }
-            const sorted = sortUsers(users, sort)
+        fc.property(arbStoredUserList(2, 50), (users) => {
+          const sort: SortState = { column: 'created_at', direction: 'desc' }
+          const sorted = sortUsers(users, sort)
 
-            for (let i = 1; i < sorted.length; i++) {
-              const prev = new Date(sorted[i - 1].created_at).getTime()
-              const curr = new Date(sorted[i].created_at).getTime()
-              expect(prev).toBeGreaterThanOrEqual(curr)
-            }
-          },
-        ),
+          for (let i = 1; i < sorted.length; i++) {
+            const prev = new Date(sorted[i - 1].created_at).getTime()
+            const curr = new Date(sorted[i].created_at).getTime()
+            expect(prev).toBeGreaterThanOrEqual(curr)
+          }
+        }),
         { numRuns: NUM_RUNS },
       )
     })
@@ -392,9 +387,9 @@ describe('Feature: user-grid-view', () => {
       fc.assert(
         fc.property(
           arbStoredUserList(1, 50),
-          fc.string({ minLength: 1, maxLength: 20 }).filter(
-            (s) => s.trim().length > 0,
-          ),
+          fc
+            .string({ minLength: 1, maxLength: 20 })
+            .filter((s) => s.trim().length > 0),
           (users, keyword) => {
             const result = filterByKeyword(users, keyword)
             const lower = keyword.trim().toLowerCase()
@@ -416,9 +411,9 @@ describe('Feature: user-grid-view', () => {
       fc.assert(
         fc.property(
           arbStoredUserList(1, 50),
-          fc.string({ minLength: 1, maxLength: 20 }).filter(
-            (s) => s.trim().length > 0,
-          ),
+          fc
+            .string({ minLength: 1, maxLength: 20 })
+            .filter((s) => s.trim().length > 0),
           (users, keyword) => {
             const result = filterByKeyword(users, keyword)
             const resultIds = new Set(result.map((u) => u.id))
@@ -465,27 +460,21 @@ describe('Feature: user-grid-view', () => {
      */
     it('returns first 100 chars for strings longer than 100', () => {
       fc.assert(
-        fc.property(
-          fc.string({ minLength: 101, maxLength: 500 }),
-          (input) => {
-            const result = truncateKeyword(input)
-            expect(result.length).toBe(100)
-            expect(result).toBe(input.slice(0, 100))
-          },
-        ),
+        fc.property(fc.string({ minLength: 101, maxLength: 500 }), (input) => {
+          const result = truncateKeyword(input)
+          expect(result.length).toBe(100)
+          expect(result).toBe(input.slice(0, 100))
+        }),
         { numRuns: NUM_RUNS },
       )
     })
 
     it('returns the full string for strings of 100 chars or fewer', () => {
       fc.assert(
-        fc.property(
-          fc.string({ minLength: 0, maxLength: 100 }),
-          (input) => {
-            const result = truncateKeyword(input)
-            expect(result).toBe(input)
-          },
-        ),
+        fc.property(fc.string({ minLength: 0, maxLength: 100 }), (input) => {
+          const result = truncateKeyword(input)
+          expect(result).toBe(input)
+        }),
         { numRuns: NUM_RUNS },
       )
     })
@@ -498,50 +487,42 @@ describe('Feature: user-grid-view, Property 2: Column toggle changes visibility 
    */
   it('toggling a column flips its visibility when min-one-visible is not violated', () => {
     fc.assert(
-      fc.property(
-        columnVisibilityArb,
-        fc.nat(),
-        (visibility, keyIdx) => {
-          const keys = Object.keys(visibility)
-          const key = keys[keyIdx % keys.length]
-          const originalValue = visibility[key]
-          const visibleCount = Object.values(visibility).filter(Boolean).length
+      fc.property(columnVisibilityArb, fc.nat(), (visibility, keyIdx) => {
+        const keys = Object.keys(visibility)
+        const key = keys[keyIdx % keys.length]
+        const originalValue = visibility[key]
+        const visibleCount = Object.values(visibility).filter(Boolean).length
 
-          const result = applyColumnToggle(visibility, key)
+        const result = applyColumnToggle(visibility, key)
 
-          // If the column is currently visible and it's the only one,
-          // the toggle should be a no-op (covered by Property 3)
-          if (originalValue && visibleCount <= 1) {
-            expect(result).toEqual(visibility)
-          } else {
-            // Otherwise, the visibility should be flipped
-            expect(result[key]).toBe(!originalValue)
-          }
-        },
-      ),
+        // If the column is currently visible and it's the only one,
+        // the toggle should be a no-op (covered by Property 3)
+        if (originalValue && visibleCount <= 1) {
+          expect(result).toEqual(visibility)
+        } else {
+          // Otherwise, the visibility should be flipped
+          expect(result[key]).toBe(!originalValue)
+        }
+      }),
       { numRuns: NUM_RUNS },
     )
   })
 
   it('toggling preserves all other column visibilities', () => {
     fc.assert(
-      fc.property(
-        columnVisibilityArb,
-        fc.nat(),
-        (visibility, keyIdx) => {
-          const keys = Object.keys(visibility)
-          const key = keys[keyIdx % keys.length]
+      fc.property(columnVisibilityArb, fc.nat(), (visibility, keyIdx) => {
+        const keys = Object.keys(visibility)
+        const key = keys[keyIdx % keys.length]
 
-          const result = applyColumnToggle(visibility, key)
+        const result = applyColumnToggle(visibility, key)
 
-          // All other keys should remain unchanged
-          for (const k of keys) {
-            if (k !== key) {
-              expect(result[k]).toBe(visibility[k])
-            }
+        // All other keys should remain unchanged
+        for (const k of keys) {
+          if (k !== key) {
+            expect(result[k]).toBe(visibility[k])
           }
-        },
-      ),
+        }
+      }),
       { numRuns: NUM_RUNS },
     )
   })
@@ -553,38 +534,29 @@ describe('Feature: user-grid-view, Property 3: Minimum one visible column invari
    */
   it('attempting to hide the last visible column leaves state unchanged', () => {
     fc.assert(
-      fc.property(
-        singleVisibleColumnArb,
-        (visibility) => {
-          const visibleKey = Object.entries(visibility).find(
-            ([, v]) => v,
-          )![0]
+      fc.property(singleVisibleColumnArb, (visibility) => {
+        const visibleKey = Object.entries(visibility).find(([, v]) => v)![0]
 
-          const result = applyColumnToggle(visibility, visibleKey)
+        const result = applyColumnToggle(visibility, visibleKey)
 
-          // State should be unchanged — the last visible column cannot be hidden
-          expect(result).toEqual(visibility)
-        },
-      ),
+        // State should be unchanged — the last visible column cannot be hidden
+        expect(result).toEqual(visibility)
+      }),
       { numRuns: NUM_RUNS },
     )
   })
 
   it('result always has at least one visible column after any toggle', () => {
     fc.assert(
-      fc.property(
-        columnVisibilityArb,
-        fc.nat(),
-        (visibility, keyIdx) => {
-          const keys = Object.keys(visibility)
-          const key = keys[keyIdx % keys.length]
+      fc.property(columnVisibilityArb, fc.nat(), (visibility, keyIdx) => {
+        const keys = Object.keys(visibility)
+        const key = keys[keyIdx % keys.length]
 
-          const result = applyColumnToggle(visibility, key)
+        const result = applyColumnToggle(visibility, key)
 
-          const visibleCount = Object.values(result).filter(Boolean).length
-          expect(visibleCount).toBeGreaterThanOrEqual(1)
-        },
-      ),
+        const visibleCount = Object.values(result).filter(Boolean).length
+        expect(visibleCount).toBeGreaterThanOrEqual(1)
+      }),
       { numRuns: NUM_RUNS },
     )
   })
@@ -601,48 +573,42 @@ describe('Feature: user-grid-view, Property 4: Column preference round-trip', ()
    */
   it('persisting and loading column preferences produces identical object', async () => {
     await fc.assert(
-      fc.asyncProperty(
-        columnVisibilityArb,
-        async (visibility) => {
-          // Clear storage before each iteration
-          await chrome.storage.local.clear()
+      fc.asyncProperty(columnVisibilityArb, async (visibility) => {
+        // Clear storage before each iteration
+        await chrome.storage.local.clear()
 
-          // Save directly to storage (bypass debounce for testing)
-          await chrome.storage.local.set({
-            [COLUMN_PREF_KEY]: visibility,
-          })
+        // Save directly to storage (bypass debounce for testing)
+        await chrome.storage.local.set({
+          [COLUMN_PREF_KEY]: visibility,
+        })
 
-          // Load back
-          const loaded = await loadColumnPreferences()
+        // Load back
+        const loaded = await loadColumnPreferences()
 
-          expect(loaded).toEqual(visibility)
-        },
-      ),
+        expect(loaded).toEqual(visibility)
+      }),
       { numRuns: NUM_RUNS },
     )
   })
 
   it('round-trip via saveColumnPreferences and loadColumnPreferences', async () => {
     await fc.assert(
-      fc.asyncProperty(
-        columnVisibilityArb,
-        async (visibility) => {
-          // Clear storage before each iteration
-          await chrome.storage.local.clear()
+      fc.asyncProperty(columnVisibilityArb, async (visibility) => {
+        // Clear storage before each iteration
+        await chrome.storage.local.clear()
 
-          // Save using the actual function (flush debounce)
-          saveColumnPreferences(visibility)
-          saveColumnPreferences.flush()
+        // Save using the actual function (flush debounce)
+        saveColumnPreferences(visibility)
+        saveColumnPreferences.flush()
 
-          // Small wait for async storage write
-          await new Promise((resolve) => setTimeout(resolve, 10))
+        // Small wait for async storage write
+        await new Promise((resolve) => setTimeout(resolve, 10))
 
-          // Load back
-          const loaded = await loadColumnPreferences()
+        // Load back
+        const loaded = await loadColumnPreferences()
 
-          expect(loaded).toEqual(visibility)
-        },
-      ),
+        expect(loaded).toEqual(visibility)
+      }),
       { numRuns: NUM_RUNS },
     )
   })

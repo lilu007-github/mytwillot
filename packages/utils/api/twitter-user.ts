@@ -64,8 +64,13 @@ async function getSuccessfulPageRequestTemplate(
     currentWindow: true,
   })
   const tab =
-    tabs.find((item) => item.active && item.url?.includes(`/${operationName.toLowerCase()}`)) ??
-    tabs.find((item) => item.url?.includes(`/${operationName.toLowerCase()}`)) ??
+    tabs.find(
+      (item) =>
+        item.active && item.url?.includes(`/${operationName.toLowerCase()}`),
+    ) ??
+    tabs.find((item) =>
+      item.url?.includes(`/${operationName.toLowerCase()}`),
+    ) ??
     tabs.find((item) => item.active) ??
     tabs[0]
 
@@ -81,7 +86,11 @@ async function getSuccessfulPageRequestTemplate(
       func: (name: 'Followers' | 'Following') => {
         return performance
           .getEntriesByType('resource')
-          .filter((entry) => entry.name.includes(`/i/api/graphql/`) && entry.name.includes(`/${name}?`))
+          .filter(
+            (entry) =>
+              entry.name.includes(`/i/api/graphql/`) &&
+              entry.name.includes(`/${name}?`),
+          )
           .map((entry: PerformanceResourceTiming) => ({
             name: entry.name,
             startTime: entry.startTime,
@@ -90,8 +99,14 @@ async function getSuccessfulPageRequestTemplate(
             encodedBodySize: entry.encodedBodySize,
           }))
           .filter((entry) => entry.responseStatus !== 404)
-          .filter((entry) => entry.responseStatus === undefined || entry.responseStatus === 200)
-          .filter((entry) => entry.transferSize > 0 || entry.encodedBodySize > 0)
+          .filter(
+            (entry) =>
+              entry.responseStatus === undefined ||
+              entry.responseStatus === 200,
+          )
+          .filter(
+            (entry) => entry.transferSize > 0 || entry.encodedBodySize > 0,
+          )
           .sort((a, b) => b.startTime - a.startTime)
           .at(0)?.name
       },
@@ -111,7 +126,10 @@ async function getSuccessfulPageRequestTemplate(
       return undefined
     }
 
-    return parseGraphQLRequestTemplate(result, queryId, capturedOperationName) ?? undefined
+    return (
+      parseGraphQLRequestTemplate(result, queryId, capturedOperationName) ??
+      undefined
+    )
   } catch (err) {
     console.warn('Failed to read x.com GraphQL performance entries', err)
     return undefined
@@ -333,12 +351,16 @@ export async function getFollowers(userId: string, cursor?: string) {
     userId,
     cursor,
   )
-  const json = await request(url, {
-    body: null,
-    method: 'GET',
-  }, {
-    useXPageContext: true,
-  })
+  const json = await request(
+    url,
+    {
+      body: null,
+      method: 'GET',
+    },
+    {
+      useXPageContext: true,
+    },
+  )
 
   return json as FollowersResponse
 }
@@ -350,12 +372,16 @@ export async function getFollowing(userId: string, cursor?: string) {
     userId,
     cursor,
   )
-  const json = await request(url, {
-    body: null,
-    method: 'GET',
-  }, {
-    useXPageContext: true,
-  })
+  const json = await request(
+    url,
+    {
+      body: null,
+      method: 'GET',
+    },
+    {
+      useXPageContext: true,
+    },
+  )
 
   return json as FollowersResponse
 }

@@ -18,7 +18,7 @@ export default function Filter() {
 
   return (
     <Show when={isFilterVisible()}>
-      <div class="sticky z-50 hidden bg-white py-4 dark:bg-[#121212] lg:top-[67px] lg:block">
+      <div class="sticky z-50 hidden bg-white py-4 lg:top-[67px] lg:block dark:bg-[#121212]">
         <div class="flex items-center gap-2">
           <h3 class="text-lg font-medium">Filter:</h3>
           <Show when={category()}>

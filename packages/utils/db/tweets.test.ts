@@ -268,7 +268,10 @@ describe('dbModule', () => {
       const tweets = TweetGenerator.generateTweets(3)
       await upsertRecords(tweets)
 
-      const deleted = await deleteRecordsByTweetIds(['nonexistent_1', 'nonexistent_2'])
+      const deleted = await deleteRecordsByTweetIds([
+        'nonexistent_1',
+        'nonexistent_2',
+      ])
       // delete operations succeed even if key doesn't exist in IndexedDB
       expect(deleted).toBe(2)
 

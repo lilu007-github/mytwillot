@@ -42,8 +42,7 @@ export default function ColumnConfig(props: ColumnConfigProps) {
             <For each={props.columns}>
               {(col) => {
                 const isVisible = () => props.visibility[col.key] ?? true
-                const isDisabled = () =>
-                  isVisible() && visibleCount() <= 1
+                const isDisabled = () => isVisible() && visibleCount() <= 1
 
                 return (
                   <SwitchPrimitive.Root
@@ -55,8 +54,8 @@ export default function ColumnConfig(props: ColumnConfigProps) {
                     <SwitchPrimitive.Label class="text-sm text-gray-700 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
                       {col.label}
                     </SwitchPrimitive.Label>
-                    <SwitchPrimitive.Input class="[&:focus-visible+div]:ring-2 [&:focus-visible+div]:ring-ring [&:focus-visible+div]:ring-offset-2" />
-                    <SwitchPrimitive.Control class="inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent bg-gray-200 transition-colors data-[checked]:bg-primary data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
+                    <SwitchPrimitive.Input class="[&:focus-visible+div]:ring-ring [&:focus-visible+div]:ring-2 [&:focus-visible+div]:ring-offset-2" />
+                    <SwitchPrimitive.Control class="data-[checked]:bg-primary inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent bg-gray-200 transition-colors data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50">
                       <SwitchPrimitive.Thumb class="pointer-events-none block h-4 w-4 translate-x-0 rounded-full bg-white shadow-sm transition-transform data-[checked]:translate-x-4" />
                     </SwitchPrimitive.Control>
                   </SwitchPrimitive.Root>

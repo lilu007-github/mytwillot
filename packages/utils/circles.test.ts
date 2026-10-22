@@ -103,10 +103,13 @@ describe('detectCommunities', () => {
   })
 
   it('ignores edges to unknown nodes', () => {
-    const communities = detectCommunities(['a', 'b'], [
+    const communities = detectCommunities(
       ['a', 'b'],
-      ['a', 'ghost'],
-    ])
+      [
+        ['a', 'b'],
+        ['a', 'ghost'],
+      ],
+    )
     expect(communities).toEqual([['a', 'b']])
   })
 })

@@ -1,10 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { validateFolderName } from './folder-validation'
-import {
-  DuplicateFolderError,
-  InvalidFolderNameError,
-} from '../types/folder'
+import { DuplicateFolderError, InvalidFolderNameError } from '../types/folder'
 
 describe('validateFolderName', () => {
   it('should return trimmed name for valid input', () => {

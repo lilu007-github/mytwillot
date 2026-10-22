@@ -2,7 +2,11 @@ import 'fake-indexeddb/auto'
 import browser from 'webextension-polyfill'
 import { describe, it, expect, beforeEach } from 'vitest'
 
-import { canDelete, deleteAccountData, AccountCleanupResult } from './account-cleanup'
+import {
+  canDelete,
+  deleteAccountData,
+  AccountCleanupResult,
+} from './account-cleanup'
 import { upsertAccountEntry, getAccountRegistry } from './account-manager'
 import { setCurrentUserId } from './storage'
 import {
@@ -56,7 +60,7 @@ describe('Account Cleanup', () => {
         'user:target_user:csrf': 'xyz',
         'user:target_user:bookmark_cursor': 'cursor123',
         'user:active_user:token': 'keep_this',
-        'current_user_id': 'active_user',
+        current_user_id: 'active_user',
       })
 
       // Set up registry

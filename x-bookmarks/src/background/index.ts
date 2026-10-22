@@ -74,9 +74,11 @@ chrome.runtime.onMessage.addListener(
         console.error('Failed to ingest captured X user list', err)
       })
     } else if (message?.type === 'TWILLOT_CAPTURED_TIMELINE') {
-      ingestCapturedTimeline(message.operation, message.url, message.json).catch(
-        (err) => console.error('Failed to ingest captured timeline', err),
-      )
+      ingestCapturedTimeline(
+        message.operation,
+        message.url,
+        message.json,
+      ).catch((err) => console.error('Failed to ingest captured timeline', err))
     }
   },
 )

@@ -16,19 +16,12 @@ export async function loadColumnPreferences(): Promise<
   try {
     const result = await chrome.storage.local.get(COLUMN_PREF_KEY)
     const stored = result[COLUMN_PREF_KEY]
-    if (
-      stored &&
-      typeof stored === 'object' &&
-      !Array.isArray(stored)
-    ) {
+    if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
       return stored as Record<string, boolean>
     }
     return allVisibleDefaults()
   } catch (e) {
-    console.warn(
-      'Failed to load column preferences, using defaults',
-      e,
-    )
+    console.warn('Failed to load column preferences, using defaults', e)
     return allVisibleDefaults()
   }
 }

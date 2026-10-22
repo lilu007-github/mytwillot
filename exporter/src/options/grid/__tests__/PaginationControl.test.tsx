@@ -32,11 +32,7 @@ describe('PaginationControl', () => {
   describe('Req 3.1: Display current page and total pages', () => {
     it('shows "Page X of Y" text', () => {
       render(() => (
-        <PaginationControl
-          {...defaultProps}
-          currentPage={2}
-          totalPages={5}
-        />
+        <PaginationControl {...defaultProps} currentPage={2} totalPages={5} />
       ))
       expect(screen.getByText('Page 2 of 5')).toBeInTheDocument()
     })
@@ -44,17 +40,13 @@ describe('PaginationControl', () => {
 
   describe('Req 3.4: Previous button disabled on first page', () => {
     it('disables previous button when on page 1', () => {
-      render(() => (
-        <PaginationControl {...defaultProps} currentPage={1} />
-      ))
+      render(() => <PaginationControl {...defaultProps} currentPage={1} />)
       const prevBtn = screen.getByLabelText('Previous page')
       expect(prevBtn).toBeDisabled()
     })
 
     it('enables previous button when not on page 1', () => {
-      render(() => (
-        <PaginationControl {...defaultProps} currentPage={2} />
-      ))
+      render(() => <PaginationControl {...defaultProps} currentPage={2} />)
       const prevBtn = screen.getByLabelText('Previous page')
       expect(prevBtn).not.toBeDisabled()
     })
@@ -63,11 +55,7 @@ describe('PaginationControl', () => {
   describe('Req 3.5: Next button disabled on last page', () => {
     it('disables next button when on last page', () => {
       render(() => (
-        <PaginationControl
-          {...defaultProps}
-          currentPage={5}
-          totalPages={5}
-        />
+        <PaginationControl {...defaultProps} currentPage={5} totalPages={5} />
       ))
       const nextBtn = screen.getByLabelText('Next page')
       expect(nextBtn).toBeDisabled()
@@ -75,11 +63,7 @@ describe('PaginationControl', () => {
 
     it('enables next button when not on last page', () => {
       render(() => (
-        <PaginationControl
-          {...defaultProps}
-          currentPage={3}
-          totalPages={5}
-        />
+        <PaginationControl {...defaultProps} currentPage={3} totalPages={5} />
       ))
       const nextBtn = screen.getByLabelText('Next page')
       expect(nextBtn).not.toBeDisabled()
@@ -139,9 +123,7 @@ describe('PaginationControl', () => {
     })
 
     it('shows current page size as selected value', () => {
-      render(() => (
-        <PaginationControl {...defaultProps} pageSize={50} />
-      ))
+      render(() => <PaginationControl {...defaultProps} pageSize={50} />)
       const select = screen.getByRole('combobox') as HTMLSelectElement
       expect(select.value).toBe('50')
     })

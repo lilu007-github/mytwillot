@@ -56,8 +56,7 @@ describe('gridLogic unit tests', () => {
   describe('Req 4.3: Tri-state sort cycle', () => {
     it('sort cycles: null → asc → desc → null', () => {
       // Starting state: no sort
-      let sort: { column: string; direction: 'asc' | 'desc' } | null =
-        null
+      let sort: { column: string; direction: 'asc' | 'desc' } | null = null
 
       // First click: apply ascending sort
       const column = 'name'
@@ -73,11 +72,7 @@ describe('gridLogic unit tests', () => {
       expect(sort).toEqual({ column: 'name', direction: 'desc' })
 
       // Third click: remove sort
-      if (
-        sort &&
-        sort.column === column &&
-        sort.direction === 'desc'
-      ) {
+      if (sort && sort.column === column && sort.direction === 'desc') {
         sort = null
       }
       expect(sort).toBeNull()

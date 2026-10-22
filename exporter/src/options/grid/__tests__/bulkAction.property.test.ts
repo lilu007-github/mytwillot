@@ -30,10 +30,7 @@ describe('Feature: user-grid-view, Property 16: Partial bulk action failure pres
   it('when all fail (failedIds equals selectedIds), selection should equal selectedIds', () => {
     fc.assert(
       fc.property(arbSelectedIds, (selectedIds) => {
-        const result = resolveSelectionAfterBulkAction(
-          selectedIds,
-          selectedIds,
-        )
+        const result = resolveSelectionAfterBulkAction(selectedIds, selectedIds)
         expect(result).toEqual(selectedIds)
       }),
       { numRuns: NUM_RUNS },
@@ -50,10 +47,7 @@ describe('Feature: user-grid-view, Property 16: Partial bulk action failure pres
           const splitPoint = (splitSeed % (selectedIds.length - 1)) + 1
           const failedIds = selectedIds.slice(splitPoint)
 
-          const result = resolveSelectionAfterBulkAction(
-            selectedIds,
-            failedIds,
-          )
+          const result = resolveSelectionAfterBulkAction(selectedIds, failedIds)
 
           expect(result).toEqual(failedIds)
         },
@@ -75,10 +69,7 @@ describe('Feature: user-grid-view, Property 16: Partial bulk action failure pres
             ...uniqueRandom,
           ]
 
-          const result = resolveSelectionAfterBulkAction(
-            selectedIds,
-            failedIds,
-          )
+          const result = resolveSelectionAfterBulkAction(selectedIds, failedIds)
 
           // Result should only contain IDs that are in both selectedIds and failedIds
           const selectedSet = new Set(selectedIds)

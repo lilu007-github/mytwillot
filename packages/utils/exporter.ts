@@ -150,7 +150,8 @@ export function obsidianNote(row: DataType): { path: string; content: string } {
   const folder = sanitizeFilePart(row.folder || '') || 'Unsorted'
   const tags: string[] = Array.isArray(row.tags) ? row.tags : []
 
-  const summary = typeof row.ai_summary === 'string' ? row.ai_summary.trim() : ''
+  const summary =
+    typeof row.ai_summary === 'string' ? row.ai_summary.trim() : ''
 
   const fm: string[] = ['---', `author: ${yamlValue(who)}`]
   if (handle) fm.push(`handle: ${yamlValue(handle)}`)
@@ -277,7 +278,10 @@ export async function markdownExporter(data: DataType[]) {
       return lines.join('\n')
     }
     return Object.entries(row)
-      .map(([k, v]) => `- **${k}**: ${escape(typeof v === 'string' ? v : JSON.stringify(v))}`)
+      .map(
+        ([k, v]) =>
+          `- **${k}**: ${escape(typeof v === 'string' ? v : JSON.stringify(v))}`,
+      )
       .join('\n')
   })
 

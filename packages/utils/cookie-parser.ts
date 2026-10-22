@@ -5,7 +5,9 @@
  * Returns the numeric user ID string, or an empty string if the value is
  * absent, malformed, or does not contain a valid numeric ID after the prefix.
  */
-export function parseTwidCookie(cookieValue: string | undefined | null): string {
+export function parseTwidCookie(
+  cookieValue: string | undefined | null,
+): string {
   if (!cookieValue) {
     return ''
   }

@@ -30,17 +30,14 @@ export async function upsertAccountEntry(
   entry: Partial<AccountEntry> & { user_id: string },
 ): Promise<void> {
   const registry = await getAccountRegistry()
-  const existingIndex = registry.findIndex(
-    (e) => e.user_id === entry.user_id,
-  )
+  const existingIndex = registry.findIndex((e) => e.user_id === entry.user_id)
 
   if (existingIndex >= 0) {
     const existing = registry[existingIndex]
     registry[existingIndex] = {
       ...existing,
       screen_name: entry.screen_name ?? existing.screen_name,
-      profile_image_url:
-        entry.profile_image_url ?? existing.profile_image_url,
+      profile_image_url: entry.profile_image_url ?? existing.profile_image_url,
       last_active_at: entry.last_active_at ?? existing.last_active_at,
     }
   } else {

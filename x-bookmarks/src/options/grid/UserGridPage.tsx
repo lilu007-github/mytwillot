@@ -25,10 +25,7 @@ import {
   setSort,
 } from './gridStore'
 import { useGridData } from './useGridData'
-import {
-  loadColumnPreferences,
-  saveColumnPreferences,
-} from './columnStorage'
+import { loadColumnPreferences, saveColumnPreferences } from './columnStorage'
 import {
   applyColumnToggle,
   computeTotalPages,
@@ -68,7 +65,9 @@ export default function UserGridPage() {
     await refreshCounts()
 
     // Re-query when the active account changes or X page captures users.
-    const onStorageChanged = (changes: Record<string, chrome.storage.StorageChange>) => {
+    const onStorageChanged = (
+      changes: Record<string, chrome.storage.StorageChange>,
+    ) => {
       if (
         StorageKeys.Current_UID in changes ||
         StorageKeys.Captured_Users_Updated in changes
@@ -95,7 +94,9 @@ export default function UserGridPage() {
       }
     }
     chrome.storage.local.onChanged.addListener(onStorageChanged)
-    onCleanup(() => chrome.storage.local.onChanged.removeListener(onStorageChanged))
+    onCleanup(() =>
+      chrome.storage.local.onChanged.removeListener(onStorageChanged),
+    )
   })
 
   useGridData()

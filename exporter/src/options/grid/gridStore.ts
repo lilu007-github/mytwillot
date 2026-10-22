@@ -25,9 +25,7 @@ const [gridState, setGridState] = createStore<GridState>(defaultGridState())
 
 export { gridState }
 
-export const setRelationship = (
-  relationship: 'follower' | 'following',
-) =>
+export const setRelationship = (relationship: 'follower' | 'following') =>
   setGridState(
     produce((s) => {
       s.relationship = relationship
@@ -71,12 +69,10 @@ export const setSort = (sort: SortState | null) =>
 export const setSelectedIds = (selectedIds: string[]) =>
   setGridState('selectedIds', selectedIds)
 
-export const setColumnVisibility = (
-  visibility: Record<string, boolean>,
-) => setGridState('columnVisibility', visibility)
+export const setColumnVisibility = (visibility: Record<string, boolean>) =>
+  setGridState('columnVisibility', visibility)
 
-export const setUsers = (users: StoredUser[]) =>
-  setGridState('users', users)
+export const setUsers = (users: StoredUser[]) => setGridState('users', users)
 
 export const setTotalCount = (totalCount: number) =>
   setGridState('totalCount', totalCount)
@@ -84,8 +80,7 @@ export const setTotalCount = (totalCount: number) =>
 export const setIsLoading = (isLoading: boolean) =>
   setGridState('isLoading', isLoading)
 
-export const setError = (error: string | null) =>
-  setGridState('error', error)
+export const setError = (error: string | null) => setGridState('error', error)
 
 export const mutateGridStore = (fn: (state: GridState) => void) =>
   setGridState(produce(fn))
