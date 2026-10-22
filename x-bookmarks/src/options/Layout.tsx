@@ -30,7 +30,6 @@ import Notification from '../components/Notification'
 import {
   IconBookmark,
   IconFolders,
-  IconMessage,
   IconMoon,
   IconSun,
   IconUp,
@@ -336,16 +335,12 @@ export const Layout = (props) => {
         <div class="px-3 py-3 lg:px-5 lg:pl-3">
           <div class="flex items-center justify-between">
             <div class="flex w-full flex-col items-center justify-start space-y-4 lg:w-auto lg:flex-row lg:space-y-0 rtl:justify-end">
-              <a
-                href="https://twillot.com?utm_source=extension"
-                target="_blank"
-                class="ms-2 flex w-60"
-              >
+              <div class="ms-2 flex w-60">
                 <img src={logo} class="me-3 h-8" />
                 <span class="flex-1 self-center whitespace-nowrap text-xl font-semibold">
                   Twillot
                 </span>
-              </a>
+              </div>
               <div class="flex w-full lg:w-[500px]">
                 <Search />
               </div>
@@ -365,12 +360,6 @@ export const Layout = (props) => {
                     <IconSun />
                   </Show>
                 </button>
-                <a
-                  href="https://s.twillot.com/chat-with-twillot"
-                  target="_blank"
-                >
-                  <IconMessage />
-                </a>
               </div>
             </div>
           </div>

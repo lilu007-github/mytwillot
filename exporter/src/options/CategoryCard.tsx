@@ -140,17 +140,9 @@ export default function CategoryCard(props: CategoryCardProps) {
             </>
           }
         >
-          <Button
-            variant="outline"
-            class="w-full"
-            onClick={() =>
-              chrome.tabs.create({
-                url: 'https://s.twillot.com/organize-x-bookmarks',
-              })
-            }
-          >
-            Get Twillot Bookmarks for X
-          </Button>
+          <p class="text-muted-foreground w-full text-center text-sm">
+            Export bookmarks from the Twillot Bookmarks extension.
+          </p>
         </Show>
       </CardFooter>
     </Card>
