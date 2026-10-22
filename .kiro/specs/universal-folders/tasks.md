@@ -40,7 +40,7 @@ This plan implements entity-scoped folders for the x-bookmarks extension. The wo
     - On failure, let the transaction abort to preserve data at version 21
     - _Requirements: 1.6, 1.7, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6_
 
-  - [ ]* 2.3 Write property tests for migration (Properties 4, 16, 17)
+  - [x]* 2.3 Write property tests for migration (Properties 4, 16, 17)
     - **Property 4: Migration maps legacy folders to bookmark scope**
     - **Property 16: Migration preserves post folder fields**
     - **Property 17: Migration creates user-scoped folders from user records**
@@ -50,58 +50,58 @@ This plan implements entity-scoped folders for the x-bookmarks extension. The wo
 - [x] 3. Checkpoint - Ensure data layer tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Folder CRUD property tests
-  - [ ]* 4.1 Write property test for folder structural integrity
+- [x] 4. Folder CRUD property tests
+  - [x]* 4.1 Write property test for folder structural integrity
     - **Property 1: Folder structural integrity**
     - Generate arbitrary valid folder names (1–50 chars, non-whitespace-only) and scopes, create folder, read back, assert fields match
     - **Validates: Requirements 1.1, 1.2**
 
-  - [ ]* 4.2 Write property test for uniqueness within scope
+  - [x]* 4.2 Write property test for uniqueness within scope
     - **Property 2: Uniqueness within scope**
     - Generate folder name and both scopes, assert duplicate in same scope rejected, same name in other scope succeeds
     - **Validates: Requirements 1.3, 1.4**
 
-  - [ ]* 4.3 Write property test for scope-filtered query correctness
+  - [x]* 4.3 Write property test for scope-filtered query correctness
     - **Property 3: Scope-filtered query correctness**
     - Generate folders across both scopes, query each scope, assert only matching scope returned in sort_order
     - **Validates: Requirements 1.5**
 
-  - [ ]* 4.4 Write property test for whitespace trimming
+  - [x]* 4.4 Write property test for whitespace trimming
     - **Property 5: Whitespace trimming on create**
     - Generate strings with leading/trailing whitespace, assert stored name is trimmed and sort_order is appended
     - **Validates: Requirements 2.1**
 
-  - [ ]* 4.5 Write property test for delete cascade
+  - [x]* 4.5 Write property test for delete cascade
     - **Property 6: Delete cascade clears entity references**
     - Create folder, assign entities, delete folder, assert folder gone and entity folder fields cleared
     - **Validates: Requirements 2.2**
 
-  - [ ]* 4.6 Write property test for reorder permutation
+  - [x]* 4.6 Write property test for reorder permutation
     - **Property 7: Reorder persists permutation**
     - Generate permutation of folder names, call reorder, assert sort_order matches new positions
     - **Validates: Requirements 2.3**
 
-  - [ ]* 4.7 Write property test for invalid name rejection
+  - [x]* 4.7 Write property test for invalid name rejection
     - **Property 8: Invalid names are rejected**
     - Generate empty, whitespace-only, >50 char, and duplicate names, assert rejection and state unchanged
     - **Validates: Requirements 2.4**
 
-  - [ ]* 4.8 Write property test for delete isolation across scopes
+  - [x]* 4.8 Write property test for delete isolation across scopes
     - **Property 9: Delete isolation across scopes**
     - Delete folder in one scope, assert other scope's folders and entity assignments unchanged
     - **Validates: Requirements 2.5**
 
-  - [ ]* 4.9 Write property test for rename cascade
+  - [x]* 4.9 Write property test for rename cascade
     - **Property 10: Rename cascade updates entity references**
     - Rename folder with assigned entities, assert folder record and all entity folder fields updated
     - **Validates: Requirements 2.6**
 
-  - [ ]* 4.10 Write property test for entity assignment
+  - [x]* 4.10 Write property test for entity assignment
     - **Property 11: Entity assignment replaces previous folder**
     - Move entities to target folder, assert folder field equals target regardless of previous value
     - **Validates: Requirements 3.1, 3.2, 3.3**
 
-  - [ ]* 4.11 Write property test for non-existent folder rejection
+  - [x]* 4.11 Write property test for non-existent folder rejection
     - **Property 12: Non-existent folder assignment rejected**
     - Attempt move to non-existent folder name, assert rejection and no entity modifications
     - **Validates: Requirements 3.6**
@@ -118,7 +118,7 @@ This plan implements entity-scoped folders for the x-bookmarks extension. The wo
     - Surface errors via a reactive `error` signal for UI consumption
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-  - [ ]* 5.2 Write property test for unsorted count correctness
+  - [x]* 5.2 Write property test for unsorted count correctness
     - **Property 14: Unsorted count correctness**
     - Generate entities with various folder assignments, assert unsorted count equals entities with empty/null folder
     - **Validates: Requirements 5.4**
@@ -157,12 +157,12 @@ This plan implements entity-scoped folders for the x-bookmarks extension. The wo
     - Handle partial bulk move failures with success/failure count toast
     - _Requirements: 3.4, 3.5, 3.6_
 
-  - [ ]* 7.4 Write property test for context-aware folder display
+  - [x]* 7.4 Write property test for context-aware folder display
     - **Property 13: Context-aware folder display**
     - Use `@solidjs/testing-library` + `fake-indexeddb` to render FolderPanel with different scopes, assert only matching folders shown in sort order
     - **Validates: Requirements 5.1, 5.2**
 
-  - [ ]* 7.5 Write property test for folder filter correctness
+  - [x]* 7.5 Write property test for folder filter correctness
     - **Property 15: Folder filter correctness**
     - Generate entities with various folder assignments, select a folder filter, assert displayed entities match selection
     - **Validates: Requirements 6.1, 6.2**

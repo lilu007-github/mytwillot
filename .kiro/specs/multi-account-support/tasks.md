@@ -15,11 +15,11 @@ This plan implements multi-account support for the Twillot Chrome extension suit
     - Implement `getActiveAccountId()` — reads `current_user_id` from Chrome Storage
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.7_
 
-  - [ ]* 1.2 Write property test for registry upsert correctness
+  - [x]* 1.2 Write property test for registry upsert correctness
     - **Property 3: Registry Upsert Correctness**
     - **Validates: Requirements 2.1, 2.5**
 
-  - [ ]* 1.3 Write property test for registry invariants (sorted and bounded)
+  - [x]* 1.3 Write property test for registry invariants (sorted and bounded)
     - **Property 4: Registry Invariants (Sorted and Bounded)**
     - **Validates: Requirements 2.3, 2.4**
 
@@ -29,7 +29,7 @@ This plan implements multi-account support for the Twillot Chrome extension suit
     - Return empty string for absent, malformed, or non-numeric values
     - _Requirements: 1.1, 1.3_
 
-  - [ ]* 2.2 Write property test for cookie parsing round-trip
+  - [x]* 2.2 Write property test for cookie parsing round-trip
     - **Property 1: Cookie Parsing Round-Trip**
     - **Validates: Requirements 1.1, 1.3**
 
@@ -40,7 +40,7 @@ This plan implements multi-account support for the Twillot Chrome extension suit
     - If cookie absent/invalid, set `current_user_id` to empty string
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 2.1, 2.5, 2.6_
 
-  - [ ]* 2.4 Write property test for storage key namespacing
+  - [x]* 2.4 Write property test for storage key namespacing
     - **Property 2: Storage Key Namespacing**
     - **Validates: Requirements 1.5, 3.2**
 
@@ -54,11 +54,11 @@ This plan implements multi-account support for the Twillot Chrome extension suit
     - Implement `withOwnershipCheck()` — wraps a DB operation with both checks
     - _Requirements: 3.4, 3.5_
 
-  - [ ]* 4.2 Write property test for empty owner rejects operations
+  - [x]* 4.2 Write property test for empty owner rejects operations
     - **Property 6: Empty Owner Rejects Operations**
     - **Validates: Requirements 3.4**
 
-  - [ ]* 4.3 Write property test for ownership mismatch rejects writes
+  - [x]* 4.3 Write property test for ownership mismatch rejects writes
     - **Property 7: Ownership Mismatch Rejects Writes**
     - **Validates: Requirements 3.5**
 
@@ -68,7 +68,7 @@ This plan implements multi-account support for the Twillot Chrome extension suit
     - Ensure all write operations validate ownership before persisting
     - _Requirements: 3.1, 3.3, 3.4, 3.5_
 
-  - [ ]* 4.5 Write property test for data isolation on query
+  - [x]* 4.5 Write property test for data isolation on query
     - **Property 5: Data Isolation on Query**
     - **Validates: Requirements 3.1**
 
@@ -81,7 +81,7 @@ This plan implements multi-account support for the Twillot Chrome extension suit
     - Implement `getSyncState()` — reads per-account sync state from Chrome Storage key `user:{uid}:sync_state`
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.7_
 
-  - [ ]* 5.2 Write property test for sync resume from last cursor
+  - [x]* 5.2 Write property test for sync resume from last cursor
     - **Property 8: Sync Resume from Last Cursor**
     - **Validates: Requirements 4.4**
 
@@ -91,7 +91,7 @@ This plan implements multi-account support for the Twillot Chrome extension suit
     - Ensure previous account's data is not modified during switch
     - _Requirements: 4.1, 4.2, 4.5, 4.6, 4.7, 5.1, 5.2_
 
-  - [ ]* 5.4 Write property test for account switch preserves previous data
+  - [x]* 5.4 Write property test for account switch preserves previous data
     - **Property 9: Account Switch Preserves Previous Data**
     - **Validates: Requirements 5.1, 5.2**
 
@@ -112,7 +112,7 @@ This plan implements multi-account support for the Twillot Chrome extension suit
     - Update indicator within 2 seconds of account change
     - _Requirements: 6.1, 6.2_
 
-  - [ ]* 7.3 Write unit tests for AccountIndicator component rendering states
+  - [x]* 7.3 Write unit tests for AccountIndicator component rendering states
     - Test rendering with valid account data
     - Test sync badge visibility during sync
     - Test fallback placeholder on image error
@@ -127,11 +127,11 @@ This plan implements multi-account support for the Twillot Chrome extension suit
     - Return `AccountCleanupResult` with status of each deletion step
     - _Requirements: 7.2, 7.3, 7.4, 7.5, 7.6_
 
-  - [ ]* 8.2 Write property test for account deletion completeness
+  - [x]* 8.2 Write property test for account deletion completeness
     - **Property 10: Account Deletion Completeness**
     - **Validates: Requirements 7.2, 7.3, 7.4**
 
-  - [ ]* 8.3 Write property test for active account cannot be deleted
+  - [x]* 8.3 Write property test for active account cannot be deleted
     - **Property 11: Active Account Cannot Be Deleted**
     - **Validates: Requirements 7.5**
 
@@ -155,7 +155,7 @@ This plan implements multi-account support for the Twillot Chrome extension suit
     - Ensure all extensions share the same account detection logic from `packages/utils`
     - _Requirements: 1.1, 1.2, 1.4_
 
-  - [ ]* 9.3 Write integration tests for full account switch flow
+  - [x]* 9.3 Write integration tests for full account switch flow
     - Test: detect new account → update storage → cancel old sync → start new sync
     - Test: switch back to previous account → data immediately available
     - Test: background script reacts to `chrome.storage.onChanged` events correctly

@@ -18,7 +18,7 @@ import { folderState } from '~/stores/folders'
  * - 'Unsorted': show users with no folder assigned
  * - folder name: show users assigned to that folder
  */
-function filterByFolder(
+export function filterByFolder(
   users: StoredUser[],
   activeFolder: string | null,
 ): StoredUser[] {
