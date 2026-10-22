@@ -33,9 +33,18 @@ Run a single test file / test: `pnpm test -- --run gridLogic` or `pnpm test -- -
 
 Shared-package tests: `cd packages/utils && pnpm test -- --run`. The root `vitest.workspace.json` scopes to `packages/*`, so running vitest at root covers only `packages/utils`.
 
-### Build gate (important)
+### Gates (CI)
 
-`strict` is **off** and there are ~10 pre-existing `tsc` errors across the repo — these are expected. **Do not use `tsc` as a pass/fail gate.** The real gate is `pnpm build` (Vite) succeeding. When asked to commit, commit **and push** in the same step.
+`.github/workflows/ci.yml` runs on every push/PR; run the same locally before committing:
+
+```bash
+pnpm format:check   # root — prettier over all workspace source (pnpm format to fix)
+pnpm typecheck      # root — tsc --noEmit for every workspace; must be 0 errors
+# tests: packages/utils, x-bookmarks, exporter (pnpm test -- --run in each)
+# builds: x-bookmarks, exporter, x-bookmarks-automation (pnpm build in each)
+```
+
+`strict` is off, but `tsc` is a real gate now (it was cleaned to 0 errors) — don't reintroduce type errors. Vitest runs with `isolate: true`; keep it — with shared state, results depended on CPU count. When asked to commit, commit **and push** in the same step.
 
 ## Code style
 

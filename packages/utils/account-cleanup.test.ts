@@ -76,7 +76,7 @@ describe('Account Cleanup', () => {
       expect(result.chromeStorageDeleted).toBe(true)
 
       // Verify target keys are removed
-      const storage = await chrome.storage.local.get(null)
+      const storage = await chrome.storage.local.get()
       const targetKeys = Object.keys(storage).filter((k) =>
         k.startsWith('user:target_user:'),
       )

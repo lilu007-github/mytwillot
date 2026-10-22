@@ -10,6 +10,20 @@ import { faker } from '@faker-js/faker'
 import { Tweet, TweetQuoted } from 'utils/types'
 
 const locales = ['en', 'ja', 'zh-cn']
+
+// Engagement metadata shared by Tweet and TweetQuoted.
+const metricFields = {
+  views_count: perBuild(() => faker.number.int({ max: 100000 })),
+  bookmark_count: perBuild(() => faker.number.int({ max: 1000 })),
+  favorite_count: perBuild(() => faker.number.int({ max: 10000 })),
+  quote_count: perBuild(() => faker.number.int({ max: 100 })),
+  reply_count: perBuild(() => faker.number.int({ max: 500 })),
+  retweet_count: perBuild(() => faker.number.int({ max: 1000 })),
+  bookmarked: bool(),
+  favorited: bool(),
+  is_quote_status: bool(),
+  retweeted: bool(),
+}
 const fields = {
   id: sequence((s) => `id_${s}`),
   owner_id: sequence((s) => `owner_id_${s}`),
@@ -41,6 +55,8 @@ const fields = {
   ),
   folder: perBuild(() => faker.lorem.word()),
   conversations: [],
+  is_thread: null,
+  ...metricFields,
 }
 
 const tweetQuotedBuilder = build<TweetQuoted>('TweetQuoted', {
@@ -55,6 +71,7 @@ const tweetQuotedBuilder = build<TweetQuoted>('TweetQuoted', {
     created_at: perBuild(() => faker.date.past().getTime()),
     possibly_sensitive: bool(),
     media_items: [],
+    ...metricFields,
   },
 })
 

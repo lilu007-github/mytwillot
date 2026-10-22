@@ -34,28 +34,20 @@ export async function syncUsers(
     return { count: 0, mode: 'api' }
   }
 
+  // Followers need X Premium via the API, so they are captured passively
+  // from the X followers page instead. Only Following is fetched here.
   if (relationship === 'followers') {
     await openFollowersPage(uid)
     return { count: 0, mode: 'x-page' }
   }
-
-  const fetcher = getFollowing
-  const keyPath =
-    relationship === 'followers'
-      ? ResponseKeyPath.user_followers
-      : ResponseKeyPath.user_following
-  const endpoint =
-    relationship === 'followers' ? Endpoint.FOLLOWERS : Endpoint.FOLLOWING
-  const storedRelationship =
-    relationship === 'followers' ? 'follower' : 'following'
 
   let cursor = ''
   let totalSynced = 0
 
   try {
     while (true) {
-      const json = await fetcher(uid, cursor || undefined)
-      const instructions = getInstructions(json, keyPath)
+      const json = await getFollowing(uid, cursor || undefined)
+      const instructions = getInstructions(json, ResponseKeyPath.user_following)
 
       if (!instructions) {
         console.warn('No instructions in response')
@@ -78,7 +70,7 @@ export async function syncUsers(
       const syncedAt = Math.floor(Date.now() / 1000)
       const docs: StoredUser[] = timelineUsers
         .map((item) =>
-          timelineUserToStoredUser(item, uid, storedRelationship, syncedAt),
+          timelineUserToStoredUser(item, uid, 'following', syncedAt),
         )
         .filter((u): u is StoredUser => u !== null)
 
@@ -94,7 +86,7 @@ export async function syncUsers(
         break
       }
 
-      const rateLimit = getRateLimitInfo(endpoint, uid)
+      const rateLimit = getRateLimitInfo(Endpoint.FOLLOWING, uid)
       if (rateLimit && rateLimit.remaining < 5) {
         console.log('Rate limit approaching, pausing sync')
         break
@@ -106,13 +98,7 @@ export async function syncUsers(
     } else if (err.name === FetchError.IdentityError) {
       alert('Authentication expired. Please re-authenticate.')
     } else if (err.name === FetchError.EndpointError) {
-      if (relationship === 'followers') {
-        alert(
-          'Syncing followers requires an X Premium account. The Following tab works without premium.',
-        )
-      } else {
-        alert('This endpoint is currently unavailable. Please try again later.')
-      }
+      alert('This endpoint is currently unavailable. Please try again later.')
     } else {
       console.error('Sync error:', err)
     }

@@ -141,7 +141,7 @@ function buildUserListVariables(
   userId: string,
   cursor?: string,
 ) {
-  const variables = {
+  const variables: Record<string, unknown> = {
     ...(template?.variables ?? {
       count: 100,
       includePromotedContent: false,

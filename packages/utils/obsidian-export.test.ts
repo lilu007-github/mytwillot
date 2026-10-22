@@ -73,6 +73,22 @@ describe('obsidianNote', () => {
     expect(path.startsWith('Unsorted/')).toBe(true)
     expect(path).not.toContain('a/b')
   })
+
+  it('keeps a real folder named "Unsorted" apart from unassigned notes', () => {
+    const unassigned = obsidianNote({ tweet_id: '1', full_text: 'a' })
+    for (const name of ['Unsorted', 'unsorted', ' UNSORTED ']) {
+      const { path, content } = obsidianNote({
+        tweet_id: '2',
+        full_text: 'b',
+        folder: name,
+      })
+      const dir = path.split('/')[0]
+      expect(dir.toLowerCase()).not.toBe('unsorted')
+      expect(dir).toBe(`${name.trim()} (folder)`)
+      expect(content).toContain(`folder: ${dir}`)
+    }
+    expect(unassigned.path.split('/')[0]).toBe('Unsorted')
+  })
 })
 
 describe('buildObsidianUri', () => {

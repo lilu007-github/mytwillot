@@ -11,7 +11,7 @@ import {
   TimelineTimelineItem,
   TimelineTimelineModule,
   TimelineTweet,
-} from '~/types'
+} from '../types'
 import { getTweet } from './twitter'
 
 export enum ResponseKeyPath {

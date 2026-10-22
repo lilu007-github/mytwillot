@@ -123,8 +123,9 @@ export function getCategoryDetails(
 
   const list = [
     ...itemEntries,
+    // With uid set, moduleEntries already holds only the owner's tweets.
     ...(moduleEntries.length > 0 &&
-    moduleEntries[0].itemType === 'TimelineTweet'
+    (moduleEntries[0] as TimelineTweet).itemType === 'TimelineTweet'
       ? moduleEntries
       : []),
     ...moduleItems,

@@ -137,6 +137,24 @@ function quoteBlock(text: string): string {
     .join('\n')
 }
 
+const UNSORTED_DIR = 'Unsorted'
+
+/**
+ * Vault directory for a row's folder. Unassigned notes go to `Unsorted/`
+ * (kept stable so repeat vault syncs don't duplicate notes); a real folder
+ * with that name gets its own directory instead of merging into it. Compared
+ * case-insensitively because default macOS/Windows file systems are.
+ */
+function noteFolder(name: string | undefined): string {
+  const folder = sanitizeFilePart(name || '')
+  if (!folder) {
+    return UNSORTED_DIR
+  }
+  return folder.toLowerCase() === UNSORTED_DIR.toLowerCase()
+    ? `${folder} (folder)`
+    : folder
+}
+
 /** Build a single Obsidian note ({ vault-relative path, content }) for a row. */
 export function obsidianNote(row: DataType): { path: string; content: string } {
   const handle = row.screen_name || ''
@@ -147,7 +165,7 @@ export function obsidianNote(row: DataType): { path: string; content: string } {
   const url =
     row.url ||
     (handle && tweetId ? `https://x.com/${handle}/status/${tweetId}` : '')
-  const folder = sanitizeFilePart(row.folder || '') || 'Unsorted'
+  const folder = noteFolder(row.folder)
   const tags: string[] = Array.isArray(row.tags) ? row.tags : []
 
   const summary =

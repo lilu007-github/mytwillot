@@ -24,6 +24,9 @@ jobs:
       - name: Format
         run: pnpm format:check
 
+      - name: Type check
+        run: pnpm typecheck
+
       - name: Test utils
         run: pnpm test -- --run
         working-directory: packages/utils
@@ -36,7 +39,6 @@ jobs:
         run: pnpm test -- --run
         working-directory: exporter
 
-      # tsc has known pre-existing errors; the Vite build is the gate.
       - name: Build x-bookmarks
         run: pnpm build
         working-directory: x-bookmarks
