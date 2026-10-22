@@ -47,18 +47,23 @@ export function parseTimelineToRecords(
     return { docs: [], cursor: '' }
   }
 
-  const { itemEntries, moduleEntries, moduleItems, cursorEntry } =
-    getAllInstructionDetails(instructions, undefined)
+  // Profile timelines (posts/replies/media) are always the owner's own
+  // profile. Their conversation modules also carry other people's tweets
+  // (the tweet being replied to), so keep only module tweets by the owner.
+  const isProfile = category !== 'bookmarks' && category !== 'likes'
+  const { pinEntry, itemEntries, moduleEntries, moduleItems, cursorEntry } =
+    getAllInstructionDetails(instructions, isProfile ? ownerId : undefined)
 
+  // Modules can mix tweets with other content (e.g. a "Who to follow" user
+  // module), so filter per item rather than by the first module's type.
   const list = [
+    ...(category === 'posts' && pinEntry ? [pinEntry.content.itemContent] : []),
     ...itemEntries,
-    ...(moduleEntries.length > 0 &&
-    (moduleEntries[0] as any)?.itemType === 'TimelineTweet'
-      ? moduleEntries
-      : []),
+    ...moduleEntries,
     ...moduleItems,
-  ] as TimelineTweet[]
+  ].filter((item: any) => item?.itemType === 'TimelineTweet') as TimelineTweet[]
 
+  const seen = new Set<string>()
   const docs = list
     .map((item) => {
       const tweet = toRecord(item, '')
@@ -69,6 +74,10 @@ export function parseTimelineToRecords(
       if (category === 'replies' && !tweet.is_reply) {
         return null
       }
+      if (seen.has(tweet.tweet_id)) {
+        return null
+      }
+      seen.add(tweet.tweet_id)
       tweet.sort_index = tweet.created_at.toString()
       tweet.id = getCategoryRecordId(category, ownerId, tweet.tweet_id)
       tweet.owner_id = ownerId

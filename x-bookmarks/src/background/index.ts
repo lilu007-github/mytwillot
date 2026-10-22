@@ -6,16 +6,13 @@ import {
   syncAuthHeaders,
 } from 'utils/storage'
 import { Host } from 'utils/types'
-import type { TimelineUser } from 'utils/types'
-import {
-  ResponseKeyPath,
-  getAllInstructionDetails,
-  getInstructions,
-} from 'utils/api/twitter-res-utils'
 import { cancelCurrentSync, startFullSync } from 'utils/sync-engine'
 import { upsertAccountEntry } from 'utils/account-manager'
-import { type StoredUser, upsertUsers } from 'utils/db/users'
-import { timelineUserToStoredUser } from 'utils/api/user-parse'
+import { upsertUsers } from 'utils/db/users'
+import {
+  getUserListRelationship,
+  parseUserListToRecords,
+} from 'utils/api/user-parse'
 import { getCurrentUserId } from 'utils/storage'
 import { parseTimelineToRecords } from 'utils/api/timeline-parse'
 import { upsertCategoryRecords } from 'utils/db/tweets'
@@ -139,55 +136,26 @@ async function ingestCapturedUserList(url: string, json: unknown) {
     },
   })
 
-  const operation = getUserListOperation(url)
-  if (!operation) {
+  const relationship = getUserListRelationship(url)
+  if (!relationship) {
     await setCapturedUsersDebug('ignored-operation', { url })
     return
   }
 
   const ownerId = getUserIdFromGraphQLUrl(url)
   if (!ownerId) {
-    await setCapturedUsersDebug('missing-owner-id', { url, operation })
+    await setCapturedUsersDebug('missing-owner-id', { url, relationship })
     return
   }
 
-  const instructions = getInstructions(
-    json,
-    operation === 'Followers'
-      ? ResponseKeyPath.user_followers
-      : ResponseKeyPath.user_following,
-  )
-
-  if (!instructions) {
-    await setCapturedUsersDebug('missing-instructions', {
-      url,
-      operation,
-      owner_id: ownerId,
-    })
-    return
-  }
-
-  const { itemEntries, moduleEntries, moduleItems } = getAllInstructionDetails(
-    instructions,
-    undefined,
-  )
-  const userEntries = [...itemEntries, ...moduleEntries, ...moduleItems]
-  const relationship = operation === 'Followers' ? 'follower' : 'following'
   const now = Math.floor(Date.now() / 1000)
-  const docs: StoredUser[] = userEntries
-    .filter((item: any) => item.itemType === 'TimelineUser')
-    .map((item: TimelineUser) =>
-      timelineUserToStoredUser(item, ownerId, relationship, now),
-    )
-    .filter((user): user is StoredUser => user !== null)
+  const docs = parseUserListToRecords(json, relationship, ownerId, now)
 
   if (docs.length === 0) {
     await setCapturedUsersDebug('no-user-docs', {
       url,
-      operation,
       owner_id: ownerId,
       relationship,
-      entries: userEntries.length,
     })
     return
   }
@@ -203,7 +171,6 @@ async function ingestCapturedUserList(url: string, json: unknown) {
     [StorageKeys.Captured_Users_Debug]: {
       stage: 'stored-users',
       url,
-      operation,
       owner_id: ownerId,
       relationship,
       count: docs.length,
@@ -224,16 +191,6 @@ async function setCapturedUsersDebug(
       updated_at: Date.now(),
     },
   })
-}
-
-function getUserListOperation(url: string): 'Followers' | 'Following' | null {
-  if (url.includes('/Followers?')) {
-    return 'Followers'
-  }
-  if (url.includes('/Following?')) {
-    return 'Following'
-  }
-  return null
 }
 
 function getUserIdFromGraphQLUrl(url: string): string {

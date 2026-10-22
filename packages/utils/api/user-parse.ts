@@ -1,5 +1,60 @@
 import { TimelineUser } from '../types'
 import { getUserId, type StoredUser } from '../db/users'
+import {
+  ResponseKeyPath,
+  getInstructions,
+  getAllInstructionDetails,
+} from './twitter-res-utils'
+
+export type UserRelationship = 'follower' | 'following'
+
+/**
+ * Map a captured GraphQL URL to the relationship it lists, or null for other
+ * operations. BlueVerifiedFollowers is the "Verified" tab of the followers
+ * page — a subset of followers with the same response shape.
+ */
+export function getUserListRelationship(url: string): UserRelationship | null {
+  if (/\/(Followers|BlueVerifiedFollowers)\?/.test(url)) {
+    return 'follower'
+  }
+  if (url.includes('/Following?')) {
+    return 'following'
+  }
+  return null
+}
+
+/**
+ * Parse a Followers/Following GraphQL response into StoredUser records.
+ * Shared by the background passive-capture ingest.
+ */
+export function parseUserListToRecords(
+  json: any,
+  relationship: UserRelationship,
+  ownerId: string,
+  syncedAt: number,
+): StoredUser[] {
+  // Followers and Following share the same key path.
+  const instructions = getInstructions(json, ResponseKeyPath.user_followers)
+  if (!instructions) {
+    return []
+  }
+
+  const { itemEntries, moduleEntries, moduleItems } = getAllInstructionDetails(
+    instructions,
+    undefined,
+  )
+  return [...itemEntries, ...moduleEntries, ...moduleItems]
+    .filter((item: any) => item?.itemType === 'TimelineUser')
+    .map((item) =>
+      timelineUserToStoredUser(
+        item as TimelineUser,
+        ownerId,
+        relationship,
+        syncedAt,
+      ),
+    )
+    .filter((user): user is StoredUser => user !== null)
+}
 
 /**
  * Map a GraphQL TimelineUser entry to a StoredUser record.
@@ -15,7 +70,7 @@ import { getUserId, type StoredUser } from '../db/users'
 export function timelineUserToStoredUser(
   item: TimelineUser,
   ownerId: string,
-  relationship: 'follower' | 'following',
+  relationship: UserRelationship,
   syncedAt: number,
 ): StoredUser | null {
   try {
