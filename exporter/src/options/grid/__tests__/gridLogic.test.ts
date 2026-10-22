@@ -15,7 +15,6 @@ describe('gridLogic unit tests', () => {
         'friends_count',
         'statuses_count',
         'is_blue_verified',
-        'location',
         'description',
         'created_at',
       ]

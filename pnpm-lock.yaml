@@ -45,7 +45,7 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
       fast-check:
-        specifier: ^3
+        specifier: ^3.23.2
         version: 3.23.2
       gulp:
         specifier: ^4.0.2

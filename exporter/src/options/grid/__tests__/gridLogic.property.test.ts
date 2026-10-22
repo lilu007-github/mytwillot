@@ -356,7 +356,8 @@ describe('Feature: user-grid-view', () => {
      * Validates: Requirements 4.8
      */
     it('sorting on non-sortable columns returns elements in original order', () => {
-      const nonSortableColumns = ['avatar', 'is_blue_verified', 'description']
+      // is_blue_verified became sortable in e3a1eab.
+      const nonSortableColumns = ['avatar', 'description']
 
       fc.assert(
         fc.property(

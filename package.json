@@ -28,6 +28,10 @@
     "vitest": "^1.6.0",
     "webextension-polyfill": "^0.12.0"
   },
+  "scripts": {
+    "format": "prettier --write 'packages/utils/**/*.{ts,tsx}' 'x-bookmarks/src/**/*.{ts,tsx,css}' 'x-bookmarks/public/*.js' 'x-bookmarks/__mocks__/*.ts' 'exporter/src/**/*.{ts,tsx,css}' 'x-bookmarks-automation/src/**/*.{ts,tsx,css}'",
+    "format:check": "prettier --check 'packages/utils/**/*.{ts,tsx}' 'x-bookmarks/src/**/*.{ts,tsx,css}' 'x-bookmarks/public/*.js' 'x-bookmarks/__mocks__/*.ts' 'exporter/src/**/*.{ts,tsx,css}' 'x-bookmarks-automation/src/**/*.{ts,tsx,css}'"
+  },
   "keywords": [
     "x",
     "twitter",
