@@ -354,18 +354,6 @@ export const IconBranch = () => (
   </svg>
 )
 
-export const IconLicense = () => (
-  <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24">
-    <path
-      stroke="currentColor"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      stroke-width="2"
-      d="M18 9V4a1 1 0 0 0-1-1H8.914a1 1 0 0 0-.707.293L4.293 7.207A1 1 0 0 0 4 7.914V20a1 1 0 0 0 1 1h6M9 3v4a1 1 0 0 1-1 1H4m11 13a11.426 11.426 0 0 1-3.637-3.99A11.139 11.139 0 0 1 10 11.833L15 10l5 1.833a11.137 11.137 0 0 1-1.363 5.176A11.425 11.425 0 0 1 15.001 21Z"
-    />
-  </svg>
-)
-
 export const IconMessage = () => (
   <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24">
     <path
@@ -374,15 +362,6 @@ export const IconMessage = () => (
       stroke-linejoin="round"
       stroke-width="2"
       d="M16 10.5h.01m-4.01 0h.01M8 10.5h.01M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-6.6a1 1 0 0 0-.69.275l-2.866 2.723A.5.5 0 0 1 8 18.635V17a1 1 0 0 0-1-1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"
-    />
-  </svg>
-)
-
-export const IconCrown = () => (
-  <svg class="h-6 w-6" viewBox="0 0 24 24">
-    <path
-      fill="currentColor"
-      d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11zm14 3c0 .6-.4 1-1 1H6c-.6 0-1-.4-1-1v-1h14z"
     />
   </svg>
 )

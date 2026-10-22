@@ -2,7 +2,6 @@
 import { HashRouter, Route } from '@solidjs/router'
 
 import { Home } from '../options/Home'
-import License from '../options/License'
 import Export from '../options/Export'
 import CategoryView from '../options/CategoryView'
 import Collections from '../options/Collections'
@@ -24,7 +23,6 @@ export default function getRoot() {
       <Route path="/gallery" component={Gallery} />
       <Route path="/users" component={UserGridPage} />
       <Route path="/accounts" component={AccountManagement} />
-      <Route path="/license" component={License} />
       <Route path="/export" component={Export} />
       <Route path="/settings" component={Settings} />
     </HashRouter>

@@ -55,7 +55,6 @@ import {
   onLocalChanged,
   StorageKeys,
 } from 'utils/storage'
-import { getLicense, isViolatedLicense, LICENSE_KEY } from 'utils/license'
 import {
   getAccountRegistry,
   upsertAccountEntry,
@@ -66,7 +65,7 @@ import { refreshData as refreshGridData } from './grid/gridStore'
 
 /**
  * Determine the entity scope from the current route pathname.
- * Returns null for pages with no entity scope (e.g., /license, /export).
+ * Returns null for pages with no entity scope (e.g., /export).
  */
 function getScopeFromPath(pathname: string): EntityScope | null {
   if (pathname === '/' || pathname === '/bookmarks') return 'bookmark'
@@ -309,17 +308,6 @@ export const Layout = (props) => {
   })
 
   onMount(async () => {
-    const license = await getLicense()
-    setStore(LICENSE_KEY, license)
-    setInterval(async () => {
-      const violated = await isViolatedLicense()
-      if (violated) {
-        alert(
-          'Upgrade your license to continue using multiple accounts feature.',
-        )
-      }
-    }, 60 * 1000)
-
     const handler = debounce((changes) => {
       if (StorageKeys.Tasks in changes) {
         syncBookmarkChanges()

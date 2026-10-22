@@ -1,7 +1,6 @@
 import { Show } from 'solid-js'
 
 import { exportData } from 'utils/exporter'
-import { getLevel, LICENSE_KEY, MemberLevel } from 'utils/license'
 import { getCurrentUserId } from 'utils/storage'
 import { Tweet, User } from 'utils/types'
 
@@ -20,7 +19,6 @@ import { showToast } from '~/components/ui/toast'
 import store, { TASK_STATE_TEXT } from './store'
 import { queryByCategory } from './sync'
 import { Category } from './types'
-import { MEMBER_LEVELS, PRICING_URL } from './member'
 
 function toUser(user: User) {
   return {
@@ -53,7 +51,6 @@ interface CategoryCardProps {
 }
 
 const [state] = store
-const level = () => getLevel(state[LICENSE_KEY])
 const exportByCategory = async (format: 'csv' | 'json', category: Category) => {
   const uid = await getCurrentUserId()
   if (!uid) {
@@ -76,30 +73,14 @@ const exportByCategory = async (format: 'csv' | 'json', category: Category) => {
       created_at: new Date(i.created_at * 1000).toISOString(),
     }))
   }
-  const limit = MEMBER_LEVELS[level()].exportLimit
-  const need_upgrade = json.length > limit
-  json = json
-    .slice(0, limit)
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    )
+  json.sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )
   if (format === 'json') {
     exportData(json, 'JSON', `twillot-export-${category}.json`)
   } else if (format === 'csv') {
     exportData(json, 'CSV', `twillot-export-${category}.csv`)
-  }
-  if (need_upgrade) {
-    showToast({
-      title: 'Export Limitation',
-      description: `Current account is limited to export ${limit} items, please upgrade your account to export more items.`,
-      variant: 'warning',
-    })
-    setTimeout(() => {
-      if (level() === MemberLevel.Free) {
-        chrome.tabs.create({ url: PRICING_URL })
-      }
-    }, 3000)
   }
 }
 

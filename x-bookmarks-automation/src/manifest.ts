@@ -5,13 +5,6 @@ import packageData from '../package.json'
 const isDev = process.env.NODE_ENV == 'development'
 
 const host_permissions = ['https://*.x.com/*']
-// cloudflare workers
-if (isDev) {
-  host_permissions.push('http://localhost:8787/*')
-  host_permissions.push('http://127.0.0.1:8787/*')
-} else {
-  host_permissions.push('https://*.twillot.com/*')
-}
 
 export default defineManifest({
   name: `${packageData.displayName || packageData.name}${isDev ? ` ➡️ Dev` : ''}`,
@@ -60,6 +53,9 @@ export default defineManifest({
     },
   ],
   host_permissions,
+  // The user's own webhook endpoint, requested when they turn webhooks on.
+  // @ts-expect-error crxjs types predate optional_host_permissions (Chrome 102+)
+  optional_host_permissions: ['https://*/*', 'http://*/*'],
   permissions: [
     'storage',
     'webRequest',

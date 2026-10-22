@@ -1,5 +1,4 @@
 import { createSignal, onMount, Show } from 'solid-js'
-import { A } from '@solidjs/router'
 
 import {
   getAISettings,
@@ -108,19 +107,6 @@ export default function Settings() {
             </Show>
           </div>
         </form>
-      </section>
-
-      <section class="rounded-lg border border-gray-200 p-5 dark:border-gray-700">
-        <h2 class="mb-1 text-lg font-medium">License</h2>
-        <p class="mb-3 text-sm text-gray-500 dark:text-gray-400">
-          Manage your Twillot membership and unlock unlimited export.
-        </p>
-        <A
-          href="/license"
-          class="inline-block rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-100 dark:border-gray-600 dark:hover:bg-gray-700"
-        >
-          Open License
-        </A>
       </section>
     </div>
   )

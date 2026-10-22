@@ -7,7 +7,6 @@ import {
   type CountInfo,
 } from 'utils/types'
 import { DAYS } from 'utils/date'
-import { type License, LICENSE_KEY } from 'utils/license'
 
 const activeFont = JSON.parse(
   localStorage.getItem('activeFont') || 'null',
@@ -44,7 +43,6 @@ export const defaultState = () => ({
   fontSize,
   theme: localStorage.getItem('theme') || 'light',
   isSidePanel: location.pathname.endsWith('sidepanel.html'),
-  [LICENSE_KEY]: null as License | null,
   isDownloadingMedia: false,
   downloadMediaCount: 0,
   downloadedMediaCount: 0,

@@ -13,15 +13,14 @@ import {
 //@ts-ignore
 import mainWorld from './inject?script&module'
 import {
-  API_HOST,
   Host,
   TaskType,
   TimelineEntry,
   TimelineTimelineItem,
   TimelineTweet,
 } from 'utils/types'
-import fetchWithTimeout from 'utils/xfetch'
 import { ProductTaskType } from '~/lib/types'
+import { AUTOMATION_WEBHOOK_MESSAGE } from '~/lib/webhook'
 
 interface Payload {
   variables: {
@@ -108,22 +107,17 @@ window.addEventListener('message', async (event) => {
         )
         const threads = await getTweetConversations(tweet_id, json)
         tweet.conversations = threads
-        await fetchWithTimeout(
-          API_HOST + '/webhook/twillot/bookmark-automation',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              data: tweet,
-              webhook: {
-                url: webhook_url,
-                token: webhook_token,
-              },
-            }),
-          },
-        )
+        // Posted by the background worker: it holds the (optional) host
+        // permission for the user's endpoint and is not bound by x.com CORS.
+        const res = await chrome.runtime.sendMessage({
+          type: AUTOMATION_WEBHOOK_MESSAGE,
+          url: webhook_url,
+          token: webhook_token,
+          data: tweet,
+        })
+        if (!res?.ok) {
+          console.error('Twillot webhook failed:', res?.error)
+        }
       }
     } catch (error) {
       console.error('Twillot webhook error:', error)

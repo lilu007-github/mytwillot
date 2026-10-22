@@ -2,11 +2,13 @@
  * Supported formats of exporting.
  */
 import { createZip } from './zip'
+import { xlsxBytes } from './xlsx'
 
 export const EXPORT_FORMAT = {
   JSON: 'JSON',
   HTML: 'HTML',
   CSV: 'CSV',
+  EXCEL: 'Excel',
   MARKDOWN: 'Markdown',
   PDF: 'PDF',
   OBSIDIAN: 'Obsidian',
@@ -52,7 +54,7 @@ export function saveFile(
  * Export data and download as a file.
  *
  * @param data Data list to export.
- * @param format Export format. (JSON, HTML, CSV)
+ * @param format Export format. (JSON, HTML, CSV, Excel, ...)
  * @param filename Filename to save.
  * @param translations Translations for headers.
  */
@@ -77,6 +79,14 @@ export async function exportData(
         prependBOM = true
         content = await csvExporter(data, translations)
         break
+      case EXPORT_FORMAT.EXCEL:
+        saveBlob(
+          filename,
+          new Blob([xlsxBytes(data, translations)], {
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          }),
+        )
+        return
       case EXPORT_FORMAT.MARKDOWN:
         content = await markdownExporter(data)
         break

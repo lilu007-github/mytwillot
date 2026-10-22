@@ -1,5 +1,4 @@
 import { createStore } from 'solid-js/store'
-import { type License, LICENSE_KEY } from 'utils/license'
 
 export const defaultState = () => ({
   like: true,
@@ -10,8 +9,6 @@ export const defaultState = () => ({
   webhook_url: '',
   webhook_token: '',
   saved: false,
-  is_dialog_open: false,
-  [LICENSE_KEY]: null as License | null,
 })
 
 export default createStore(defaultState())

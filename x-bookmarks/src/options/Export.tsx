@@ -1,66 +1,37 @@
-import { createSignal, Show } from 'solid-js'
+import { Show } from 'solid-js'
 
-import { openNewTab } from 'utils/browser'
-import { findRecords, iterate } from 'utils/db/tweets'
+import { findRecords } from 'utils/db/tweets'
 import {
   getMediaItemsIncludeQuote,
   getTweetsContainsMedia,
 } from 'utils/api/twitter-media'
 import { exportData } from 'utils/exporter'
-import { Host } from 'utils/types'
-import { MemberLevel } from 'utils/license'
+import { Host, Tweet } from 'utils/types'
 
-import { IconClose, IconCrown } from '../components/Icons'
+import { IconClose } from '../components/Icons'
 import {
   EXPORT_FORM_FIELDS,
   EXPORT_MEDIA_FIELDS,
   getExportFields,
   getMediaSavePath,
-  MAX_EXPORT_SIZE,
-  MAX_MEDIA_EXPORT_SIZE,
-  PRICING_URL,
-} from '../libs/member'
+} from '../libs/export-fields'
 import dataStore, { mutateStore } from './store'
 import Spinner from '../components/Spinner'
 import VaultSync from '../components/VaultSync'
 import ObsidianRest from '../components/ObsidianRest'
-import { useMemberLevel } from '~/hooks/useMemberLevel'
 
 const [store, setStore] = dataStore
 
-const ExportPage = () => {
-  const level = useMemberLevel()
-  const [maxMediaRows, setMaxMediaRows] = createSignal(
-    MAX_MEDIA_EXPORT_SIZE[level()],
-  )
-  const isLimited = () =>
-    maxMediaRows() < MAX_MEDIA_EXPORT_SIZE[MemberLevel.Pro]
-  const maxRows = () => MAX_EXPORT_SIZE[level()]
-  const onRadioChange = (row, field) => {
-    if (row.level > level) {
-      alert(
-        row.level === MemberLevel.Pro
-          ? 'Unlock unlimited exporting to access this feature.'
-          : 'You need upgrade your membership level to access this feature.',
-      )
-    }
+/** Tweet text followed by the rest of its thread, when it has one. */
+function unrolledText(tweet: Tweet) {
+  return tweet.conversations?.length
+    ? tweet.full_text +
+        '\n' +
+        tweet.conversations.map((c) => c?.full_text || '').join('\n')
+    : tweet.full_text
+}
 
-    if (field.name === 'action_type') {
-      if (row.value === 'csv') {
-        setMaxMediaRows(MAX_MEDIA_EXPORT_SIZE[MemberLevel.Pro])
-      } else {
-        setMaxMediaRows(MAX_MEDIA_EXPORT_SIZE[level()])
-      }
-    } else if (field.name === 'file_format') {
-      document
-        .querySelectorAll(
-          'input[name="unroll"][value="yes"], input[name="metadata"][value="yes"]',
-        )
-        .forEach((el: HTMLElement) => {
-          el.click()
-        })
-    }
-  }
+const ExportPage = () => {
   const exportBookmarks = async (e) => {
     e.preventDefault()
     const form: HTMLFormElement = e.target
@@ -68,53 +39,27 @@ const ExportPage = () => {
     EXPORT_FORM_FIELDS.forEach((field) => {
       params[field.name] = form[field.name].value
     })
-    let minLevel = MemberLevel.Free
-    if (params.metadata === 'yes' || params.unroll === 'yes') {
-      minLevel = MemberLevel.Basic
-    }
 
-    if (level() < minLevel) {
-      openNewTab(PRICING_URL)
-      return
-    }
-
-    const max = MAX_EXPORT_SIZE[level()]
-    if (store.totalCount?.total > max) {
-      alert(
-        `Max ${max} rows reached, unlock unlimited exporting to export more.`,
-      )
-    }
-
-    const records = await findRecords(
-      '',
-      '',
-      '',
-      '',
-      Math.min(store.totalCount?.total, max),
-    )
+    const records = await findRecords('', '', '', '', Number.MAX_SAFE_INTEGER)
     if (records.length === 0) {
       alert('No bookmarks found.')
       return
     }
+    const fullText = (i: Tweet) =>
+      params.unroll === 'yes' ? unrolledText(i) : i.full_text
 
-    if (params.file_format === 'csv') {
+    if (params.file_format === 'csv' || params.file_format === 'xlsx') {
+      const isCsv = params.file_format === 'csv'
       exportData(
         records.map((i) => ({
           ...i,
           is_thread: i.is_thread || i.conversations?.length > 0,
           url: `${Host}/${i.screen_name}/status/${i.tweet_id}`,
-          full_text:
-            level() < MemberLevel.Basic
-              ? i.full_text
-              : i.conversations?.length
-                ? i.full_text +
-                  '\n' +
-                  i.conversations.map((i) => i?.full_text || '').join('\n')
-                : i.full_text,
+          full_text: fullText(i),
         })),
-        'CSV',
-        'twillot-bookmarks.csv',
-        getExportFields(level(), params.file_format),
+        isCsv ? 'CSV' : 'Excel',
+        isCsv ? 'twillot-bookmarks.csv' : 'twillot-bookmarks.xlsx',
+        getExportFields(params.metadata === 'yes'),
       )
     } else if (params.file_format === 'json') {
       exportData(records, 'JSON', 'twillot-bookmarks.json')
@@ -131,11 +76,7 @@ const ExportPage = () => {
         url: `${Host}/${i.screen_name}/status/${i.tweet_id}`,
         created_at: new Date(i.created_at * 1000).toLocaleString(),
         media: i.media_items,
-        full_text: i.conversations?.length
-          ? i.full_text +
-            '\n' +
-            i.conversations.map((c) => c?.full_text || '').join('\n')
-          : i.full_text,
+        full_text: fullText(i),
       }))
       exportData(
         enriched,
@@ -155,7 +96,7 @@ const ExportPage = () => {
     const records = await getTweetsContainsMedia(
       params.media_type,
       true,
-      maxMediaRows(),
+      Number.MAX_SAFE_INTEGER,
     )
     const mediaList = []
     for (const record of records) {
@@ -274,22 +215,12 @@ const ExportPage = () => {
                           name={field.name}
                           class="h-4 w-4 border-gray-300 focus:ring-2 focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:focus:bg-blue-600 dark:focus:ring-blue-600"
                           checked={row.value === field.default}
-                          onChange={() => onRadioChange(row, field)}
                         />
                         <label
                           for={`${field.name}_${index}`}
                           class="ms-2 flex cursor-pointer items-center font-medium text-gray-900 dark:text-gray-300"
                         >
                           {row.label}
-                          <a
-                            class="ml-2 flex scale-75 text-yellow-400"
-                            href={PRICING_URL}
-                            target="_blank"
-                          >
-                            {new Array(row.level).fill(0).map((_) => (
-                              <IconCrown />
-                            ))}
-                          </a>
                         </label>
                       </div>
                     ))}
@@ -298,34 +229,13 @@ const ExportPage = () => {
               )
             })}
 
-            <div class="mb-4 flex gap-8">
-              <label class="mb-2 block w-32 text-right font-medium text-gray-900 dark:text-white">
-                Rows Limited:
-              </label>
-              <div class="flex-1 text-sm">
-                <p class="flex cursor-pointer items-center font-medium text-gray-900 dark:text-gray-300">
-                  {level() > MemberLevel.Basic ? 'Unlimited' : maxRows()}
-                </p>
-              </div>
-            </div>
             <div class="my-5">
               <button
                 type="submit"
                 class="mb-2 me-8 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
               >
-                <Show when={isLimited()} fallback="Unlimited Download">
-                  Download
-                </Show>
+                Download
               </button>
-              <Show when={isLimited()}>
-                <a
-                  href={PRICING_URL}
-                  target="_blank"
-                  class="mb-2 me-2 inline-block rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-gradient-to-bl focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800"
-                >
-                  Unlock Unlimited Exporting
-                </a>
-              </Show>
             </div>
           </form>
         </div>
@@ -358,7 +268,6 @@ const ExportPage = () => {
                           name={field.name}
                           class="h-4 w-4 border-gray-300 focus:ring-2 focus:ring-blue-300 dark:border-gray-600 dark:bg-gray-700 dark:focus:bg-blue-600 dark:focus:ring-blue-600"
                           checked={row.value === field.default}
-                          onChange={() => onRadioChange(row, field)}
                         />
                         <label
                           for={`${field.name}_${index}`}
@@ -367,15 +276,6 @@ const ExportPage = () => {
                           {typeof row.label === 'string'
                             ? row.label
                             : row.label()}
-                          <a
-                            class="ml-2 flex scale-75 text-yellow-400"
-                            href={PRICING_URL}
-                            target="_blank"
-                          >
-                            {new Array(row.level).fill(0).map((_) => (
-                              <IconCrown />
-                            ))}
-                          </a>
                         </label>
                       </div>
                     ))}
@@ -383,19 +283,6 @@ const ExportPage = () => {
                 </div>
               )
             })}
-
-            <div class="mb-4 flex gap-8">
-              <label class="mb-2 block w-32 text-right font-medium text-gray-900 dark:text-white">
-                Rows Limited:
-              </label>
-              <div class="flex-1 text-sm">
-                <p class="flex items-center font-medium text-gray-900 dark:text-gray-300">
-                  <Show when={isLimited()} fallback="Unlimited">
-                    {maxMediaRows()}
-                  </Show>
-                </p>
-              </div>
-            </div>
 
             <div class="my-5 flex">
               <Show
@@ -405,9 +292,7 @@ const ExportPage = () => {
                     type="submit"
                     class={`mb-2 me-8 flex items-center justify-center gap-2 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-300 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800`}
                   >
-                    <Show when={isLimited()} fallback="Unlimited Download">
-                      Download
-                    </Show>
+                    Download
                   </button>
                 }
               >
@@ -424,16 +309,6 @@ const ExportPage = () => {
 
                   <IconClose className="h-5 w-5" />
                 </button>
-              </Show>
-
-              <Show when={isLimited()}>
-                <a
-                  href={PRICING_URL}
-                  target="_blank"
-                  class="mb-2 me-4 inline-block rounded-lg bg-gradient-to-br from-purple-600 to-blue-500 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-gradient-to-bl focus:outline-none focus:ring-4 focus:ring-blue-300 dark:focus:ring-blue-800"
-                >
-                  Unlock Unlimited Exporting
-                </a>
               </Show>
             </div>
           </form>

@@ -4,8 +4,8 @@ Twillot is a suite of Chrome extensions for X/Twitter power users. The core valu
 
 ## Extensions
 
-- **x-bookmarks** (main): Search, organize, and export Twitter bookmarks. Includes AI-powered smart categorization/tagging, folder management, keyword search, CSV/JSON export, and media download.
-- **x-bookmarks-automation**: Engagement and content management automation for X/Twitter.
+- **x-bookmarks** (main): Search, organize, and export Twitter bookmarks. Includes AI-powered smart categorization/tagging, folder management, keyword search, multi-format export, Obsidian integration, and media download.
+- **x-bookmarks-automation**: On bookmark, auto like / repost / reply, and optionally POST the tweet to the user's own webhook.
 - **exporter**: One-click data export tool for X/Twitter (followers, bookmarks, etc.).
 
 ## Key Capabilities
@@ -13,15 +13,14 @@ Twillot is a suite of Chrome extensions for X/Twitter power users. The core valu
 - Sync Twitter bookmarks to local IndexedDB storage
 - Full-text keyword search across bookmarks
 - AI-powered automatic tagging/categorization
-- Export to CSV, JSON, Excel, and third-party platforms (Notion, Roam Research, Evernote)
+- Export to CSV, Excel (.xlsx), JSON, Markdown, PDF, and Obsidian (vault zip, direct vault write, Local REST API push)
 - Media file downloads from bookmarks
 - Folder management without Twitter Premium
 - Omnibox quick search (prefix: `tt`)
 
-## Monetization
+## Pricing
 
-- Freemium model with a Pro Plan for AI categorization features
-- Sponsorship via Patreon and Ko-fi
+Everything is free and unlimited. There is no license server, membership tier, or Twillot backend — all data stays in the browser, and the only outbound calls are to X, the user's own LLM provider, the user's Obsidian, and the user's own webhook.
 
 ## License
 

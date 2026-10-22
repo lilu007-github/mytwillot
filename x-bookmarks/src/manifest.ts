@@ -15,13 +15,10 @@ const host_permissions = [
   'http://localhost/*',
   'https://localhost/*',
 ]
-// cloudflare workers
+// Vite dev server (HMR)
 if (isDev) {
-  host_permissions.push('http://localhost:8787/*')
   host_permissions.push('http://localhost:3000/*')
   host_permissions.push('ws://localhost:3000/*')
-} else {
-  host_permissions.push('https://*.twillot.com/*')
 }
 
 export default defineManifest({

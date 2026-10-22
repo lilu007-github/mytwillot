@@ -11,7 +11,7 @@ A pnpm monorepo of Manifest V3 Chrome extensions for X/Twitter power users. Thre
 - **x-bookmarks-automation**: engagement/content automation.
 - **multi-publish**: multi-store publishing tooling (not a workspace member).
 
-All data lives locally in the browser (IndexedDB + `chrome.storage.local`). There is **no Twillot backend** — AI classification calls the user's own LLM provider directly with the user's own API key.
+All data lives locally in the browser (IndexedDB + `chrome.storage.local`). There is **no Twillot backend** — AI classification calls the user's own LLM provider directly with the user's own API key. There are no license tiers or export limits; don't add calls to `*.twillot.com` or other third-party relays (automation webhooks post straight to the user's endpoint from the background worker).
 
 ## Commands
 
@@ -40,7 +40,7 @@ Shared-package tests: `cd packages/utils && pnpm test -- --run`. The root `vites
 ```bash
 pnpm format:check   # root — prettier over all workspace source (pnpm format to fix)
 pnpm typecheck      # root — tsc --noEmit for every workspace; must be 0 errors
-# tests: packages/utils, x-bookmarks, exporter (pnpm test -- --run in each)
+# tests: packages/utils, x-bookmarks, exporter, x-bookmarks-automation (pnpm test -- --run in each)
 # builds: x-bookmarks, exporter, x-bookmarks-automation (pnpm build in each)
 ```
 

@@ -1,5 +1,4 @@
 import { produce, createStore } from 'solid-js/store'
-import { type License, LICENSE_KEY } from 'utils/license'
 
 export enum TaskState {
   unstarted,
@@ -33,8 +32,6 @@ export const defaultState = () => ({
   followers: { ...initialState },
   // 占位
   bookmarks: { ...initialState },
-  is_dialog_open: false,
-  [LICENSE_KEY]: null as License | null,
 })
 
 const store = createStore(defaultState())

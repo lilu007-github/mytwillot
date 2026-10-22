@@ -9,21 +9,13 @@ import {
   getPosts,
   getReplies,
 } from 'utils/api/twitter-user'
-import { getLevel, LICENSE_KEY, MemberLevel } from 'utils/license'
 import { Endpoint } from 'utils/types'
 import { FetchError } from 'utils/xfetch'
 
 import { Button } from '~/components/ui/button'
-import { Separator } from '~/components/ui/separator'
 import { Toaster } from '~/components/ui/toast'
 import CategoryCard from './CategoryCard'
-import { PRICING_URL } from './member'
-import DialogLicense from './License'
-import store from './store'
 import { initDb, startSyncAll, startSyncRecent, summary } from './sync'
-
-const [state, setState] = store
-const level = () => getLevel(state[LICENSE_KEY])
 
 function syncAll(uid: string) {
   startSyncAll(uid, 'posts', getPosts, Endpoint.USER_TWEETS)
@@ -39,7 +31,7 @@ export default function App() {
 
   onMount(async () => {
     const [local, _] = await Promise.all([
-      getLocal([StorageKeys.Current_UID, LICENSE_KEY]),
+      getLocal(StorageKeys.Current_UID),
       initDb(),
     ])
     const uid = local[StorageKeys.Current_UID]
@@ -47,9 +39,6 @@ export default function App() {
       setIsAuthFailed(true)
       return
     }
-    const license = local[LICENSE_KEY]
-    setState({ [LICENSE_KEY]: license })
-
     try {
       await summary(uid)
     } catch (e) {
@@ -128,33 +117,6 @@ export default function App() {
           category="bookmarks"
         />
       </div>
-      <Show when={level() !== MemberLevel.Pro}>
-        <div class="text-muted-foreground flex items-center justify-center space-x-4 text-base">
-          <a
-            href={PRICING_URL}
-            target="_blank"
-            class="text-muted-foreground underline underline-offset-4"
-          >
-            Upgrade to {level() === MemberLevel.Free ? 'Basic' : 'Pro'} Plan
-          </a>
-          <Separator orientation="vertical" />
-          <span
-            class="cursor-pointer underline underline-offset-4"
-            onClick={() => setState({ is_dialog_open: true })}
-          >
-            Activate
-          </span>
-          <DialogLicense />
-          <Separator orientation="vertical" />
-          <a
-            href="https://s.twillot.com/organize-x-bookmarks"
-            target="_blank"
-            class="text-muted-foreground underline underline-offset-4"
-          >
-            Export X Bookmarks
-          </a>
-        </div>
-      </Show>
       <Toaster />
     </div>
   )

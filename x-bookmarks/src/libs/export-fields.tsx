@@ -1,41 +1,27 @@
 import { DownloadMediaItem } from 'utils/api/twitter-media'
-import { MemberLevel } from 'utils/license'
-
-export const PRICING_URL = 'https://s.twillot.com/bookmarks-pricing'
-
-export const MAX_EXPORT_SIZE = [1000, 5000, Number.MAX_SAFE_INTEGER]
-
-export const MAX_MEDIA_EXPORT_SIZE = [100, 500, Number.MAX_SAFE_INTEGER]
 
 const fileTypes = [
-  { value: 'csv', label: 'CSV', level: MemberLevel.Free },
-  { value: 'json', label: 'Raw JSON', level: MemberLevel.Basic },
-  { value: 'markdown', label: 'Markdown', level: MemberLevel.Free },
+  { value: 'csv', label: 'CSV' },
+  { value: 'xlsx', label: 'Excel (.xlsx)' },
+  { value: 'json', label: 'Raw JSON' },
+  { value: 'markdown', label: 'Markdown' },
   {
     value: 'obsidian',
     label: 'Obsidian vault (.zip)',
-    level: MemberLevel.Free,
   },
-  { value: 'pdf', label: 'PDF', level: MemberLevel.Free },
-  // { value: 'docx', label: 'DOCX', level: 1 },
+  { value: 'pdf', label: 'PDF' },
 ]
 const unrollThreads = [
-  { value: 'no', label: 'No', level: MemberLevel.Free },
-  { value: 'yes', label: 'Yes', level: MemberLevel.Basic },
+  { value: 'no', label: 'No' },
+  { value: 'yes', label: 'Yes' },
 ]
 const metaDatas = [
-  { value: 'no', label: 'None', level: MemberLevel.Free },
+  { value: 'no', label: 'None' },
   {
     value: 'yes',
     label: 'Include views / bookmark / favorite / quote / reply / repost',
-    level: MemberLevel.Basic,
   },
 ]
-const fastMode = [
-  { value: 'no', label: 'Normal', level: MemberLevel.Free },
-  { value: 'yes', label: 'Ultra Fast', level: MemberLevel.Pro },
-]
-
 export const EXPORT_FORM_FIELDS = [
   {
     name: 'file_format',
@@ -47,7 +33,7 @@ export const EXPORT_FORM_FIELDS = [
     name: 'unroll',
     data: unrollThreads,
     label: 'Unroll threads',
-    default: 'no',
+    default: 'yes',
   },
   {
     name: 'metadata',
@@ -55,12 +41,6 @@ export const EXPORT_FORM_FIELDS = [
     label: 'Engagement metrics',
     default: 'no',
   },
-  // {
-  //   name: 'fast_mode',
-  //   data: fastMode,
-  //   label: 'Export speed',
-  //   default: 'no',
-  // },
 ]
 
 export const EXPORT_MEDIA_FIELDS = [
@@ -70,12 +50,10 @@ export const EXPORT_MEDIA_FIELDS = [
       {
         value: 'csv',
         label: 'CSV with media file links',
-        level: MemberLevel.Free,
       },
       {
         value: 'media',
         label: 'Original media files',
-        level: MemberLevel.Free,
       },
     ],
     label: 'Download type',
@@ -84,21 +62,18 @@ export const EXPORT_MEDIA_FIELDS = [
   {
     name: 'media_type',
     data: [
-      { value: 'image', label: 'Image', level: MemberLevel.Free },
+      { value: 'image', label: 'Image' },
       {
         value: 'gif',
         label: 'Gif',
-        level: MemberLevel.Free,
       },
       {
         value: 'video',
         label: 'Video',
-        level: MemberLevel.Free,
       },
       {
         value: 'all',
         label: 'All',
-        level: MemberLevel.Free,
       },
     ],
     label: 'Media type',
@@ -110,14 +85,12 @@ export const EXPORT_MEDIA_FIELDS = [
       {
         value: 'default',
         label: 'None',
-        level: MemberLevel.Free,
       },
       {
         value: 'folder',
         label: 'Bookmark folder',
-        level: MemberLevel.Basic,
       },
-      { value: 'user', label: 'User', level: MemberLevel.Basic },
+      { value: 'user', label: 'User' },
       {
         value: 'custom',
         label: () => (
@@ -130,7 +103,6 @@ export const EXPORT_MEDIA_FIELDS = [
             />
           </span>
         ),
-        level: MemberLevel.Basic,
       },
     ],
     label: 'Organize files by',
@@ -138,9 +110,9 @@ export const EXPORT_MEDIA_FIELDS = [
   },
 ]
 
+/** Spreadsheet (CSV/Excel) columns; metrics only when asked for. */
 export function getExportFields(
-  level: MemberLevel,
-  fileType?: string,
+  includeMetrics: boolean,
 ): Record<string, string> {
   const metaFields = {
     views_count: 'Views Count',
@@ -173,13 +145,9 @@ export function getExportFields(
     is_thread: 'Thread',
   }
 
-  if (level === MemberLevel.Free) {
-    return exportBaseFields
-  }
-
   return {
     ...exportBaseFields,
-    ...metaFields,
+    ...(includeMetrics ? metaFields : {}),
     avatar_url: 'Avatar',
     media_items: 'Media Items',
     quoted_tweet: 'Quoted Post',

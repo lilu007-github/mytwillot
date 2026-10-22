@@ -1,11 +1,5 @@
 import { onMount, Show } from 'solid-js'
 import { getLocal, setLocal } from 'utils/storage'
-import {
-  getLevel,
-  isFreeLicense,
-  LICENSE_KEY,
-  MemberLevel,
-} from 'utils/license'
 
 import {
   Card,
@@ -21,19 +15,20 @@ import {
   TextFieldInput,
   TextFieldTextArea,
 } from '~/components/ui/text-field'
-import { Separator } from '~/components/ui/separator'
-import { PRICING_URL } from './member'
-import DialogLicense from './License'
+import { WEBHOOK_ORIGINS } from '~/lib/webhook'
 import store, { defaultState } from './store'
 
 const [state, setState] = store
-const updateField = (field: string, value: boolean | string) => {
-  if (
-    ['webhook', 'reply'].includes(field) &&
-    isFreeLicense(state[LICENSE_KEY])
-  ) {
-    chrome.tabs.create({ url: PRICING_URL })
-    return
+const updateField = async (field: string, value: boolean | string) => {
+  // Posting to the user's endpoint needs host access to it; ask while we
+  // still have the click's user gesture.
+  if (field === 'webhook' && value === true) {
+    const granted = await chrome.permissions.request({
+      origins: WEBHOOK_ORIGINS,
+    })
+    if (!granted) {
+      return
+    }
   }
   const updates = { [field]: value }
   setLocal(updates)
@@ -57,7 +52,6 @@ const SwitchContainer = (props) => {
 }
 
 export default function App() {
-  const level = () => getLevel(state[LICENSE_KEY])
   onMount(async () => {
     const local = await getLocal([
       'like',
@@ -67,7 +61,6 @@ export default function App() {
       'webhook_url',
       'webhook_token',
       'reply_text',
-      LICENSE_KEY,
     ])
     const defaults = defaultState()
     setState({
@@ -78,7 +71,6 @@ export default function App() {
       reply_text: local.reply_text || '',
       webhook_url: local.webhook_url || '',
       webhook_token: local.webhook_token || '',
-      [LICENSE_KEY]: local[LICENSE_KEY] || null,
     })
   })
 
@@ -203,33 +195,6 @@ export default function App() {
                 }
               />
             </TextField>
-          </div>
-        </Show>
-        <Show when={level() === MemberLevel.Free}>
-          <div class="text-muted-foreground flex items-center justify-center space-x-2 text-xs">
-            <a
-              href={PRICING_URL}
-              target="_blank"
-              class="text-muted-foreground underline underline-offset-4"
-            >
-              Upgrade
-            </a>
-            <Separator orientation="vertical" />
-            <span
-              class="cursor-pointer underline underline-offset-4"
-              onClick={() => setState({ is_dialog_open: true })}
-            >
-              Activate
-            </span>
-            <DialogLicense />
-            <Separator orientation="vertical" />
-            <a
-              href="https://s.twillot.com/organize-x-bookmarks"
-              target="_blank"
-              class="text-muted-foreground underline underline-offset-4"
-            >
-              Export X Bookmarks
-            </a>
           </div>
         </Show>
       </CardContent>
