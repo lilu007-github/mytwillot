@@ -24,6 +24,14 @@ export function getPostId(user_id: string, tweet_id: string) {
 }
 
 /**
+ * The posts store also holds passively captured likes/posts/replies/media.
+ * Records without category_name predate the v23 backfill and are bookmarks.
+ */
+export function isBookmarkRecord(record: Pick<Tweet, 'category_name'>) {
+  return (record.category_name || 'bookmarks') === 'bookmarks'
+}
+
+/**
  * Explicit-key writes persist records as-is, so reject any record that
  * belongs to another account instead of silently overwriting its data.
  */
@@ -523,6 +531,11 @@ export async function countRecords(
         .result
       if (cursor) {
         const record = cursor.value
+        // Bookmark counts only: skip captured likes/posts/replies/media.
+        if (!isBookmarkRecord(record)) {
+          cursor.continue()
+          return
+        }
         counts.total++
         if (record.has_image) counts.image++
         if (record.has_video) counts.video++

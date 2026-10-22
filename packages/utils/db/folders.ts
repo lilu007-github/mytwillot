@@ -6,6 +6,7 @@ import {
 } from '../types/folder'
 import { getCurrentUserId } from '../storage'
 import { validateFolderName } from './folder-validation'
+import { isBookmarkRecord } from './tweets'
 import {
   openDb,
   getObjectStore,
@@ -449,7 +450,10 @@ export async function countUnsorted(scope: EntityScope): Promise<number> {
     request.onsuccess = (event) => {
       const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
       if (cursor) {
-        if (!cursor.value.folder) {
+        const record = cursor.value
+        // In bookmark scope, captured likes/posts/etc. aren't bookmarks.
+        const inScope = scope === 'user' || isBookmarkRecord(record)
+        if (inScope && !record.folder) {
           count++
         }
         cursor.continue()
