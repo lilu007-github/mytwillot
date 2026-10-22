@@ -27,7 +27,7 @@ export default mergeConfig(
       pool: 'forks',
       poolOptions: {
         forks: {
-          isolate: false,
+          isolate: true,
         },
       },
       deps: {
