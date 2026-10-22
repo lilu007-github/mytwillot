@@ -50,6 +50,7 @@ describe('MCP server', () => {
       'list_folders',
       'list_tags',
       'mirror_info',
+      'query_sql',
       'search_tweets',
       'stats',
       'trends',
@@ -94,6 +95,34 @@ describe('MCP server', () => {
     expect((await call(client, 'mirror_info')).active_account.screen_name).toBe(
       'Me',
     )
+  })
+
+  it('answers read-only SQL with the schema in its description', async () => {
+    const client = await connect()
+    const { tools } = await client.listTools()
+    expect(tools.find((t) => t.name === 'query_sql')!.description).toContain(
+      'tweets_fts',
+    )
+    const res = await call(client, 'query_sql', {
+      sql: 'SELECT id, length(text) AS len FROM tweets ORDER BY id',
+      max_rows: 1,
+    })
+    expect(res).toMatchObject({
+      columns: ['id', 'len'],
+      rows: [{ id: '1', len: 614 }],
+      truncated: true,
+      returned: 1,
+    })
+    const full = await call(client, 'query_sql', {
+      sql: "SELECT text FROM tweets WHERE id = '1'",
+    })
+    expect(full.rows[0].text.length).toBe(614)
+
+    const write: any = await client.callTool({
+      name: 'query_sql',
+      arguments: { sql: 'DELETE FROM tweets' },
+    })
+    expect(write.isError).toBe(true)
   })
 
   it('reports bad input as a tool error, not a crash', async () => {

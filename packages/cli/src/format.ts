@@ -67,3 +67,34 @@ export function countsTable(rows: { key: string; count: number }[]) {
     .map((r) => `${String(r.count).padStart(width)}  ${r.key}`)
     .join('\n')
 }
+
+/** Aligned text table for SQL results; long or multi-line cells clipped. */
+export function sqlTable(
+  columns: string[],
+  rows: Record<string, unknown>[],
+  maxCell = 60,
+) {
+  const cell = (v: unknown) => {
+    const text =
+      v === null || v === undefined
+        ? ''
+        : typeof v === 'object'
+          ? JSON.stringify(v)
+          : String(v)
+    return clip(text, maxCell)
+  }
+  const body = rows.map((r) => columns.map((c) => cell(r[c])))
+  const widths = columns.map((c, i) =>
+    Math.max(c.length, ...body.map((r) => r[i].length)),
+  )
+  const line = (cells: string[]) =>
+    cells
+      .map((v, i) => v.padEnd(widths[i]))
+      .join('  ')
+      .trimEnd()
+  return [
+    line(columns),
+    line(widths.map((w) => '-'.repeat(w))),
+    ...body.map(line),
+  ].join('\n')
+}

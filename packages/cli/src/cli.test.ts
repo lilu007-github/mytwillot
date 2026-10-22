@@ -127,6 +127,32 @@ describe('twillot CLI', () => {
     )
   })
 
+  it('runs read-only SQL and reports the index', async () => {
+    const base = ['--data', mirror]
+    expect(
+      await run(['sql', 'SELECT id, folder FROM tweets ORDER BY id', ...base]),
+    ).toBe('id  folder\n--  ------\n11  AI/LLM\n12\n\n2 rows')
+    const json = JSON.parse(
+      (await run([
+        'sql',
+        'SELECT count(*) AS n FROM tweets',
+        '--json',
+        ...base,
+      ]))!,
+    )
+    expect(json).toEqual({ columns: ['n'], rows: [{ n: 2 }], truncated: false })
+    expect(
+      await run(['sql', 'SELECT id FROM tweets', '--limit', '1', ...base]),
+    ).toMatch(/1 row \(truncated; raise --limit\)$/)
+    expect(await run(['sql', 'SELECT 1 WHERE 0', ...base])).toBe('(no rows)')
+    expect(await run(['sql', '--schema', ...base])).toContain('fts_query')
+    await expect(run(['sql', 'DELETE FROM tweets', ...base])).rejects.toThrow(
+      /readonly/,
+    )
+    await expect(run(['sql', ...base])).rejects.toThrow(/Usage: twillot sql/)
+    expect(await run(['index', '--rebuild', ...base])).toMatch(/Rows:\s+2/)
+  })
+
   it('rejects bad option values as usage errors', async () => {
     const base = ['--data', mirror]
     await expect(run(['search', '--sort', 'random', ...base])).rejects.toThrow(

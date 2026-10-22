@@ -170,11 +170,19 @@ export function dedupe(tweets: AgentTweet[]): AgentTweet[] {
   return tweets.filter((t) => best.get(t.id) === t)
 }
 
+/**
+ * Full-text matcher (the SQLite FTS5 index): `${category}\0${id}` →
+ * relevance, higher is better; null when the terms can't be indexed.
+ */
+export type FtsSearch = (terms: string[]) => Map<string, number> | null
+
 export function searchTweets(
   tweets: AgentTweet[],
   opts: SearchOptions,
+  fts?: FtsSearch | null,
 ): SearchResult {
   const q = parseQuery(opts.query)
+  const hits = q.terms.length && fts ? fts(q.terms) : null
   // A category filter already yields one entry per tweet; deduping first
   // would drop e.g. a liked tweet whose bookmark copy was kept instead.
   const pool =
@@ -206,7 +214,14 @@ export function searchTweets(
       }
       score += n
     }
-    if (all) scored.push({ t, score })
+    // Full-text hits rank by bm25 first. Substring-only matches (e.g. part
+    // of a longer Chinese word) still count, ranked after them.
+    const ftsScore = hits?.get(`${t.category}\u0000${t.id}`)
+    if (ftsScore !== undefined) {
+      scored.push({ t, score: 1e6 + ftsScore * 1000 + score })
+    } else if (all) {
+      scored.push({ t, score })
+    }
   }
 
   const sort = opts.sort || (q.terms.length ? 'relevance' : 'date')

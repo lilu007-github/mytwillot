@@ -28,7 +28,17 @@
 - [x] 5. Tests (query, trends, CLI, MCP via in-memory transport), CI steps,
   root format/typecheck, README
 
+- [x] 6. SQLite index — _Req 4_
+  - [x] 6.1 `packages/cli/src/sqlite.ts`: build/rebuild by mirror signature
+    (atomic rename), tables + FTS5 with Intl.Segmenter pre-segmentation,
+    `fts_query()` SQL function, read-only `sql()` with row cap
+  - [x] 6.2 FTS ranking in `searchTweets` (bm25 hits first, substring fallback)
+  - [x] 6.3 `twillot sql` / `twillot index`; MCP `query_sql` with schema in
+    its description
+  - [x] 6.4 Tests (index, ranking, read-only, CLI, MCP); docs
+
 ## Later
 
 - Write-back (apply proposed folders/tags) via native messaging or an import
   file the extension reads.
+- Semantic search (embeddings via sqlite-vec) — needs an embedding model.

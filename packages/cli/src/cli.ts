@@ -6,15 +6,24 @@ import {
   resolveDataDir,
   saveDataDir,
   UsageError,
+  type Dataset,
 } from './data'
 import {
   countsTable,
+  sqlTable,
   json,
   tweetsMarkdown,
   tweetsText,
   type Format,
 } from './format'
 import { getTweets, searchTweets, type SortOrder } from './query'
+import {
+  MAX_SQL_ROWS,
+  openIndex,
+  requireIndex,
+  SCHEMA_DOC,
+  type TwillotIndex,
+} from './sqlite'
 import { stats, trends, type Period } from './trends'
 import { runMcpServer } from './mcp'
 
@@ -34,6 +43,9 @@ Commands:
   tags                  Tags with counts
   stats                 Totals, months, top authors / folders / tags
   trends                Topics per period and rising terms
+  sql <query>           Read-only SQL over the local SQLite index
+                        (--schema lists tables and columns)
+  index                 Show the local search index (--rebuild to force)
   mcp                   Run the MCP server on stdio (for Claude Code etc.)
 
 Filters (search, stats, trends):
@@ -47,6 +59,7 @@ Filters (search, stats, trends):
 
 search:   --sort relevance|date|engagement  --limit <n> (20)  --offset <n>
           --full (whole text and threads)
+sql:      --limit <n> (200) rows
 trends:   --period week|month|quarter|year (month)  --top <n> (10)
 Output:   --format text|md|json  (--json = --format json)
 Global:   --data <dir> (or $TWILLOT_DATA)  --account <screen_name|id>
@@ -72,6 +85,8 @@ const OPTIONS = {
   top: { type: 'string' },
   format: { type: 'string', short: 'f' },
   json: { type: 'boolean' },
+  schema: { type: 'boolean' },
+  rebuild: { type: 'boolean' },
   help: { type: 'boolean', short: 'h' },
   version: { type: 'boolean', short: 'v' },
 } as const
@@ -167,17 +182,23 @@ export async function run(argv: string[]): Promise<string | null> {
 
   switch (command) {
     case 'search': {
-      const res = searchTweets(ds.tweets, {
-        ...filters,
-        query: args.join(' '),
-        sort: oneOf<SortOrder>('sort', o.sort, [
-          'relevance',
-          'date',
-          'engagement',
-        ]),
-        limit: int('limit', o.limit),
-        offset: int('offset', o.offset),
-      })
+      const index = tryIndex(ds)
+      const res = searchTweets(
+        ds.tweets,
+        {
+          ...filters,
+          query: args.join(' '),
+          sort: oneOf<SortOrder>('sort', o.sort, [
+            'relevance',
+            'date',
+            'engagement',
+          ]),
+          limit: int('limit', o.limit),
+          offset: int('offset', o.offset),
+        },
+        index?.ftsSearch,
+      )
+      index?.close()
       if (format === 'json') return json(res)
       if (format === 'md') return tweetsMarkdown(res.items)
       if (!res.total) return 'No matches.'
@@ -245,8 +266,57 @@ export async function run(argv: string[]): Promise<string | null> {
       }
       return lines.join('\n\n') || 'No items in range.'
     }
+    case 'sql': {
+      if (o.schema) return SCHEMA_DOC
+      const query = args.join(' ').trim()
+      if (!query) {
+        throw new UsageError('Usage: twillot sql "<SELECT ...>"  (or --schema)')
+      }
+      const index = requireIndex(ds)
+      try {
+        const res = index.sql(
+          query,
+          Math.min(int('limit', o.limit) ?? 200, MAX_SQL_ROWS),
+        )
+        if (format === 'json') return json(res)
+        if (!res.rows.length) return '(no rows)'
+        return (
+          sqlTable(res.columns, res.rows) +
+          `\n\n${res.rows.length} row${res.rows.length === 1 ? '' : 's'}` +
+          (res.truncated ? ' (truncated; raise --limit)' : '')
+        )
+      } finally {
+        index.close()
+      }
+    }
+    case 'index': {
+      const index = requireIndex(ds, { rebuild: o.rebuild })
+      try {
+        const { rows } = index.sql('SELECT count(*) AS n FROM tweets')
+        return [
+          `Index:  ${index.path}`,
+          `Built:  ${index.builtAt}`,
+          `Rows:   ${rows[0].n}`,
+          `Mirror: ${ds.account.exported_at}`,
+        ].join('\n')
+      } finally {
+        index.close()
+      }
+    }
     default:
       throw new UsageError(`Unknown command "${command}". Run twillot --help.`)
+  }
+}
+
+/** The search index, or null (with a note) if it can't be built here. */
+function tryIndex(ds: Dataset): TwillotIndex | null {
+  try {
+    return openIndex(ds)
+  } catch (err) {
+    process.stderr.write(
+      `twillot: search index unavailable (${(err as Error).message}); scanning instead\n`,
+    )
+    return null
   }
 }
 

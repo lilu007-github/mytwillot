@@ -58,7 +58,18 @@ twillot show 1811044379643293932 https://x.com/a/status/123
 twillot folders | twillot tags | twillot accounts
 twillot stats --since 1y
 twillot trends --period month --since 6m           # topics + rising terms
+twillot sql "select author, count(*) n from tweets group by 1 order by 2 desc limit 10"
+twillot sql --schema                               # tables and columns
+twillot index --rebuild                            # force-rebuild the SQLite index
 ```
+
+Search uses a SQLite FTS5 index built from the mirror on first use and
+rebuilt when the mirror changes (`~/.cache/twillot`, or `$TWILLOT_CACHE_DIR`).
+Chinese is word-segmented before indexing; hits rank by bm25, and
+substring-only matches still appear after them. `twillot sql` runs read-only
+SQL over the same index; wrap search words in `fts_query()` to use full-text
+search from SQL. Needs Node 22.13+ (built-in `node:sqlite`); older Node falls
+back to scanning.
 
 Filters (search / stats / trends): `--category`, `--folder` (includes
 subfolders), `--unsorted`, `--tag`, `--untagged`, `--author`, `--since`,
@@ -77,6 +88,7 @@ recently mirrored.
 | `list_folders`, `list_tags` | Organization with counts |
 | `stats` | Totals by category/month, top authors/folders/tags |
 | `trends` | Per-period top terms (Chinese + English), hashtags, authors; rising terms |
+| `query_sql` | Read-only SQL over the index (schema in the tool description) |
 
 Prompts: `digest` (themed summary of a period) and `organize` (propose folders
 and tags for unsorted bookmarks; apply them in the extension).

@@ -50,6 +50,8 @@ twillot show 1811044379643293932            # 看某条推文的完整内容和�
 twillot trends --period month --since 6m    # 近半年每月关注的话题和上升词
 twillot stats                               # 总量、常收藏的作者、文件夹分布
 twillot folders                             # 文件夹及条数
+twillot sql "select author, count(*) n from tweets group by 1 order by 2 desc limit 10"
+twillot sql --schema                        # 能查哪些表和字段
 ```
 
 **通用筛选参数**
@@ -69,6 +71,24 @@ twillot folders                             # 文件夹及条数
 **多账号**：用 `--account <用户名>` 切换账号，默认是最近一次镜像的账号。
 
 完整用法见 `twillot --help`。
+
+### 全文索引和 SQL
+
+第一次搜索时，CLI 会从镜像自动生成一个本地 SQLite 索引，放在 `~/.cache/twillot/`；镜像有更新时会自动重建。它带来两样东西：
+
+- **更准的搜索**：按词匹配，并用 bm25 算法排序相关度；中文会先分词再建索引。"rust" 也能匹配到 "rustacean"。索引没命中、但原文里包含查询字符串的结果也不会漏，会排在后面。
+- **SQL 查询**：`twillot sql` 可以对数据跑任意只读 SQL，适合预设命令覆盖不到的分析。写操作会被拒绝。
+
+全文检索要配合 `fts_query()`，它会按和索引相同的方式给中英文分词：
+
+```sql
+SELECT t.author, t.text FROM tweets_fts
+JOIN tweets t ON t.rowid = tweets_fts.rowid
+WHERE tweets_fts MATCH fts_query('agent 记忆')
+ORDER BY bm25(tweets_fts) LIMIT 20
+```
+
+`twillot index` 查看索引位置和条数，`twillot index --rebuild` 强制重建。需要 Node 22.13 或更新版本（用的是 Node 内置的 SQLite）；版本太旧时搜索会自动退回逐条扫描，`sql` 命令会提示升级。
 
 ## 第三步：接入 Claude（只做一次）
 
@@ -100,6 +120,7 @@ claude mcp add --scope user twillot -- node /绝对路径/mytwillot-1/packages/c
 接好之后直接用中文问，Claude 会自己调用工具读你的数据：
 
 - **查资料**："我收藏过哪些讲 RAG 的帖子？挑最有价值的 5 条，说说各自的观点"
+- **自由分析**："每个月我收藏最多的 3 个作者是谁？"（Claude 会自己写 SQL）
 - **总结**："把我这周收藏的内容按主题总结一下，附上原帖链接"（也可以用预设提示 `digest`）
 - **整理分类**："看看我没分类的书签，建议放进哪些文件夹、打什么标签"（也可以用预设提示 `organize`）
 - **看趋势**："对比我近半年每个月关注的话题，哪些在升温？"
@@ -114,6 +135,7 @@ claude mcp add --scope user twillot -- node /绝对路径/mytwillot-1/packages/c
 | `list_folders`、`list_tags` | 文件夹、标签及条数 |
 | `stats` | 按类型、月份统计，常收藏的作者、文件夹、标签 |
 | `trends` | 每个时期的高频词（中英文）、话题标签、作者，以及"上升词" |
+| `query_sql` | 只读 SQL，用于预设工具覆盖不到的分析；表结构写在工具说明里，agent 能直接看到 |
 
 "上升词"指最近一个时期里出现次数达到以往平均 2 倍以上的词，至少出现 3 次。
 

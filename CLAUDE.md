@@ -79,7 +79,7 @@ IndexedDB isn't readable outside the browser, so the options page mirrors the ac
 
 - **Format** — `packages/utils/agent-mirror.ts`: `AgentTweet`/`AgentFolder`/`AgentTag`/`AgentAccountMeta`/`AgentIndex`, `toAgentTweet`, `buildAccountSnapshot`, `mergeAgentIndex`, and `AGENT_README` (written into the mirror for agents). Layout: `index.json`, `README.md`, `accounts/<owner_id>/{tweets.jsonl,folders.json,tags.json,meta.json}`.
 - **Writer** — `x-bookmarks/src/libs/agent-mirror.ts` (+ `components/AgentMirror.tsx`; auto-refresh started from `options/Layout.tsx`). Reuses the File System Access helpers in `libs/vault.ts` with its own handle key.
-- **Reader** — `packages/cli/src`: `data.ts` (locate/load; `~/.config/twillot/config.json`), `query.ts` (query language, filters, dedupe, sort), `trends.ts` (stats, per-period terms via `Intl.Segmenter`, rising terms), `cli.ts`, `mcp.ts`. Bundled by esbuild into `dist/twillot.mjs` with `utils` inlined; only `@modelcontextprotocol/sdk` and `zod` stay external.
+- **Reader** — `packages/cli/src`: `data.ts` (locate/load; `~/.config/twillot/config.json`), `query.ts` (query language, filters, dedupe, sort), `trends.ts` (stats, per-period terms via `Intl.Segmenter`, rising terms), `sqlite.ts` (derived SQLite index: FTS5 + read-only SQL), `cli.ts`, `mcp.ts`. Bundled by esbuild into `dist/twillot.mjs` with `utils` inlined; only `@modelcontextprotocol/sdk` and `zod` stay external.
 
 Rules:
 
@@ -89,6 +89,7 @@ Rules:
 - Unchanged files are skipped by content hash; `meta.json`/`index.json` change every run on purpose (`exported_at` = freshness, surfaced by the `mirror_info` tool).
 - The CLI/MCP is **read-only**. Write-back (applying AI-proposed folders/tags) is deferred (spec: `.kiro/specs/agent-access`, "Later"). New MCP tools must keep `readOnlyHint`; when adding one, update the exact tool list in `mcp.test.ts`, the tool tables in both docs, and the matching CLI command if any.
 - Search across categories dedupes a tweet that is both bookmarked and liked (keeps the bookmark copy), except when a category filter is set. Trend counts are document frequency, not raw occurrences.
+- The SQLite index (`packages/cli/src/sqlite.ts`, Node's built-in `node:sqlite`, 22.13+) is a **derived cache** of the JSONL mirror in `~/.cache/twillot` — never write it from the extension, never treat it as the source of truth. It rebuilds when the mirror files' size/mtime change; bump `INDEX_VERSION` when the table layout or indexing changes, and keep `SCHEMA_DOC` (shown to agents in the `query_sql` description and `twillot sql --schema`) in sync with `DDL`. FTS text and queries are pre-segmented with `Intl.Segmenter` (`segmentText` / `ftsExpression` / SQL `fts_query()`) because FTS5's tokenizer can't split Chinese. SQL runs on a `readOnly` connection with `query_only`; keep it that way. Without `node:sqlite`, search must fall back to scanning.
 - CLI tests build mirrors with the real writer code (`src/fixture.test-helper.ts` → `buildAccountSnapshot`); keep it that way so writer and reader can't drift. `strict` is on in `packages/cli/tsconfig.json`.
 
 ## Shared package (`packages/utils/`)

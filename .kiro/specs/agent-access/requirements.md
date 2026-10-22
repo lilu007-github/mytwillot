@@ -54,3 +54,17 @@ saved tweets directly.
 2. It SHALL pick up a refreshed mirror without restarting.
 3. It SHALL offer `digest` and `organize` prompts.
 4. Invalid arguments SHALL come back as tool errors, not crash the server.
+
+### 4. Full-text index and SQL
+
+**User Story:** As a user, I want better-ranked search and the freedom to ask
+ad-hoc analytical questions, so agents aren't limited to the preset tools.
+
+1. The CLI SHALL derive a SQLite index (FTS5) from the mirror, outside the
+   mirror folder, and rebuild it when the mirror changes.
+2. Search SHALL rank full-text hits (Chinese segmented, prefix-matched) by
+   bm25 and still return substring-only matches after them.
+3. `twillot sql` and the `query_sql` MCP tool SHALL run read-only SQL over the
+   index; writes SHALL be rejected; results SHALL be row-capped.
+4. Without Node's built-in SQLite, search SHALL fall back to scanning and SQL
+   SHALL explain the Node version requirement.

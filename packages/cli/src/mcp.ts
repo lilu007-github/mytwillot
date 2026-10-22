@@ -7,9 +7,20 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import type { AgentTweet } from 'utils/agent-mirror'
 
-import { createDatasetLoader, loadIndex } from './data'
+import {
+  createDatasetLoader,
+  loadIndex,
+  UsageError,
+  type Dataset,
+} from './data'
 import { getTweets, searchTweets } from './query'
 import { stats, trends } from './trends'
+import {
+  MAX_SQL_ROWS,
+  openIndex,
+  SCHEMA_DOC,
+  type TwillotIndex,
+} from './sqlite'
 
 const CATEGORY = z
   .enum(['all', 'bookmarks', 'likes', 'posts', 'replies', 'media'])
@@ -79,6 +90,27 @@ function brief(t: AgentTweet, full: boolean) {
 
 export function createServer(dir: string, account?: string) {
   const load = createDatasetLoader(dir, account)
+
+  // The SQLite index follows the dataset: reopened (and rebuilt if stale)
+  // whenever the loader hands back a fresh dataset.
+  let index: TwillotIndex | null = null
+  let indexError = ''
+  let indexFor: Dataset | null = null
+  const getIndex = () => {
+    const ds = load()
+    if (ds !== indexFor) {
+      index?.close()
+      try {
+        index = openIndex(ds)
+        indexError = index ? '' : 'Node 22.13+ built-in SQLite is unavailable'
+      } catch (err) {
+        index = null
+        indexError = (err as Error).message
+      }
+      indexFor = ds
+    }
+    return index
+  }
   const server = new McpServer({ name: 'twillot', version: '0.1.0' })
 
   server.registerTool(
@@ -128,7 +160,7 @@ export function createServer(dir: string, account?: string) {
       annotations: READ_ONLY,
     },
     async ({ full, ...opts }) => {
-      const res = searchTweets(load().tweets, opts)
+      const res = searchTweets(load().tweets, opts, getIndex()?.ftsSearch)
       return result({
         total: res.total,
         offset: res.offset,
@@ -201,6 +233,44 @@ export function createServer(dir: string, account?: string) {
       annotations: READ_ONLY,
     },
     async (opts) => result(trends(load().tweets, opts)),
+  )
+
+  server.registerTool(
+    'query_sql',
+    {
+      title: 'Read-only SQL',
+      description:
+        'Run one read-only SQLite query over the saved items for analysis the other tools do not cover (custom grouping, joins, counts over time). Prefer search_tweets / stats / trends when they fit.\n\n' +
+        SCHEMA_DOC,
+      inputSchema: {
+        sql: z.string().min(1).describe('A single SELECT (or WITH ... SELECT)'),
+        max_rows: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_SQL_ROWS)
+          .optional()
+          .describe('Default 100'),
+      },
+      annotations: READ_ONLY,
+    },
+    async ({ sql, max_rows }) => {
+      const idx = getIndex()
+      if (!idx) {
+        throw new UsageError(`SQL is unavailable: ${indexError}`)
+      }
+      const res = idx.sql(sql, max_rows ?? 100)
+      // Keep huge text cells from flooding the context.
+      const rows = res.rows.map((row) =>
+        Object.fromEntries(
+          Object.entries(row).map(([k, v]) => [
+            k,
+            typeof v === 'string' ? clip(v, 2000) : v,
+          ]),
+        ),
+      )
+      return result({ ...res, rows, returned: rows.length })
+    },
   )
 
   server.registerPrompt(

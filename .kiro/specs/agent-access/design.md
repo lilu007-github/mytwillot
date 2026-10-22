@@ -15,6 +15,8 @@ IndexedDB (posts/folders/tags, owner-scoped)
             trends.ts stats, per-period terms (Intl.Segmenter: zh + en),
                       hashtags, authors, rising terms
             cli.ts    commands (node:util parseArgs)
+            sqlite.ts derived SQLite index (FTS5 + read-only SQL),
+                      ~/.cache/twillot/<dir hash>/<owner_id>.sqlite
             mcp.ts    @modelcontextprotocol/sdk stdio server
 ```
 
@@ -37,3 +39,11 @@ IndexedDB (posts/folders/tags, owner-scoped)
   average, with at least 3 mentions.
 - **Dedupe across categories** keeps the bookmark copy (it has folder/tags),
   except when a category filter is set.
+- **SQLite as a derived index, not the store.** The browser can't usefully
+  write a SQLite file other tools can read, and JSONL stays the interchange
+  format. The CLI rebuilds the index from the mirror (keyed by file
+  size/mtime, built to a temp file then renamed). Node's built-in
+  `node:sqlite` avoids native dependencies.
+- **Chinese full-text search:** FTS5 `unicode61` doesn't segment CJK, so both
+  indexed text and queries go through `Intl.Segmenter` and each query term
+  becomes a prefix phrase. Substring matching is kept as a recall fallback.
