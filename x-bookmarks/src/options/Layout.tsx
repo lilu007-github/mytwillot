@@ -209,9 +209,7 @@ export const Layout = (props) => {
     if (scope === 'bookmark' && store.totalCount) {
       return store.totalCount.unsorted
     }
-    // For users, unsorted count is not readily available in the store
-    // Return 0 as a fallback until a dedicated count is wired
-    return 0
+    return folderState.unsortedCount
   })
 
   // Watch route changes and update folder scope + clear filter

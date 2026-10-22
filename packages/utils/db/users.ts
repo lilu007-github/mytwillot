@@ -1,5 +1,11 @@
 import { getCurrentUserId } from '../storage'
-import { DB_NAME, DB_VERSION, USERS_TABLE_NAME, getObjectStore, openDb } from './index'
+import {
+  DB_NAME,
+  DB_VERSION,
+  USERS_TABLE_NAME,
+  getObjectStore,
+  openDb,
+} from './index'
 
 export interface StoredUser {
   /** Composite key: `${owner_id}_${relationship}_${rest_id}` */
@@ -74,6 +80,7 @@ export async function updateUserFolder(
   ids: string[],
   folder: string,
 ): Promise<{ succeeded: string[]; failed: string[] }> {
+  const ownerId = await getCurrentUserId()
   const db = await openDb(DB_NAME, DB_VERSION)
   const { objectStore, transaction } = getObjectStore(db, USERS_TABLE_NAME)
 
@@ -83,13 +90,14 @@ export async function updateUserFolder(
     let processed = 0
 
     transaction.oncomplete = () => resolve({ succeeded, failed })
-    transaction.onerror = () => reject(new Error('Failed to update user folders'))
+    transaction.onerror = () =>
+      reject(new Error('Failed to update user folders'))
 
     ids.forEach((id) => {
       const request = objectStore.get(id)
       request.onsuccess = () => {
         const record = request.result
-        if (record) {
+        if (record && record.owner_id === ownerId) {
           record.folder = folder
           objectStore.put(record)
           succeeded.push(id)

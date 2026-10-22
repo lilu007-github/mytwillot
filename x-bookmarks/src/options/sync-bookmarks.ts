@@ -231,6 +231,9 @@ export async function* syncAllBookmarks(forceSync = false) {
   let cursor: string | undefined = forceSync
     ? (await getLocal(StorageKeys.Bookmark_Cursor))[StorageKeys.Bookmark_Cursor]
     : undefined
+  // A resumed full sync never sees the pages fetched before the interruption,
+  // so it must not treat those bookmarks as deleted on the server.
+  const fromBeginning = !cursor
   // Track all tweet_ids received from the server during a full sync
   // to detect server-side deletions
   const serverTweetIds: Set<string> = new Set()
@@ -300,7 +303,7 @@ export async function* syncAllBookmarks(forceSync = false) {
   }
 
   // After a full sync completes, remove local records that no longer exist on the server
-  if (forceSync && serverTweetIds.size > 0) {
+  if (forceSync && fromBeginning && serverTweetIds.size > 0) {
     try {
       const localTweetIds = await getAllTweetIds()
       const staleIds = localTweetIds.filter((id) => !serverTweetIds.has(id))

@@ -213,10 +213,7 @@ export async function setTweetTags(
 ): Promise<void> {
   const ownerId = await getCurrentUserId()
   const db = await openDb()
-  const { objectStore, transaction } = getObjectStore(
-    db,
-    TWEETS_TABLE_NAME_V2,
-  )
+  const { objectStore, transaction } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
   return new Promise((resolve, reject) => {
     const getReq = objectStore.get(tweetId)
     getReq.onsuccess = () => {
@@ -239,7 +236,9 @@ export async function getTagCounts(): Promise<Record<string, number>> {
   const db = await openDb()
   const { objectStore } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
   return new Promise((resolve, reject) => {
-    const counts: Record<string, number> = {}
+    // Null prototype: tag names like "constructor" must not hit
+    // Object.prototype; also makes the Solid store replace, not merge.
+    const counts: Record<string, number> = Object.create(null)
     // Scan only this account's records via the owner_id index; each record is
     // visited once and its tags counted in JS (the multiEntry tags index would
     // walk one entry per tag across every account).

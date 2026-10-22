@@ -54,9 +54,12 @@ export async function startFullSync(userId: string): Promise<void> {
  * Cancel the current sync, persisting the current cursor position.
  * Sets sync state to idle. The cursor is already persisted by the
  * fetching loop, so we only need to update the status.
+ *
+ * Pass `userId` when cancelling on an account switch: by then
+ * `current_user_id` already holds the new account.
  */
-export async function cancelCurrentSync(): Promise<void> {
-  const userId = await getCurrentUserId()
+export async function cancelCurrentSync(userId?: string): Promise<void> {
+  userId = userId ?? (await getCurrentUserId())
   if (!userId) {
     return
   }

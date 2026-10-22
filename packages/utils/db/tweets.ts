@@ -3,7 +3,7 @@ import { formatDate } from '../date'
 import { parseTwitterQuery } from '../query-parser'
 import { getCurrentUserId } from '../storage'
 import { openDb, getObjectStore, TWEETS_TABLE_NAME_V2 } from './index'
-import { requireActiveAccount } from './context-guard'
+import { requireActiveAccount, OwnershipMismatchError } from './context-guard'
 
 const metadataFields =
   'views_count,bookmark_count,favorite_count,quote_count,reply_count,retweet_count,bookmarked,favorited,is_quote_status,retweeted'.split(
@@ -23,13 +23,25 @@ export function getPostId(user_id: string, tweet_id: string) {
     : user_id + '_' + tweet_id
 }
 
+/**
+ * Explicit-key writes persist records as-is, so reject any record that
+ * belongs to another account instead of silently overwriting its data.
+ */
+function assertOwnedBy(records: Tweet[], ownerId: string) {
+  if (records.some((r) => r && r.owner_id !== ownerId)) {
+    throw new OwnershipMismatchError()
+  }
+}
+
 export async function upsertRecords(
   records: Tweet[],
   isUpdate = false,
 ): Promise<void> {
-  await requireActiveAccount()
+  const user_id = await requireActiveAccount()
+  if (isUpdate) {
+    assertOwnedBy(records, user_id)
+  }
   const db = await openDb()
-  const user_id = await getCurrentUserId()
 
   return new Promise((resolve, reject) => {
     const { transaction, objectStore } = getObjectStore(
@@ -104,7 +116,8 @@ export async function upsertRecords(
  * fields (folder/tags/note/title, thread state) across re-captures.
  */
 export async function upsertCategoryRecords(records: Tweet[]): Promise<void> {
-  await requireActiveAccount()
+  const ownerId = await requireActiveAccount()
+  assertOwnedBy(records, ownerId)
   const db = await openDb()
 
   return new Promise((resolve, reject) => {
@@ -170,8 +183,9 @@ function meetsCriteria(
   if (folder === 'Unsorted') {
     folderFilter = !tweet.folder
   } else {
-    folderFilter =
-      !folder || tweet.folder?.toLowerCase() === folder.toLowerCase()
+    // Exact match: folder names are case-sensitive ("Work" and "work" are
+    // distinct folders), consistent with the folder index lookups.
+    folderFilter = !folder || tweet.folder === folder
   }
 
   return (
@@ -656,21 +670,27 @@ export async function clearFolder(folder: string): Promise<void> {
   })
 }
 
+/**
+ * Assign `folder` to the given post ids. Ids that don't exist or belong to
+ * another account are reported as failed and left untouched.
+ */
 export async function updateFolder(
   ids: string[],
   folder: string,
-): Promise<number> {
+): Promise<{ succeeded: string[]; failed: string[] }> {
   const db = await openDb()
+  const user_id = await getCurrentUserId()
   return new Promise((resolve, reject) => {
     const { objectStore, transaction } = getObjectStore(
       db,
       TWEETS_TABLE_NAME_V2,
     )
 
-    let count = 0
+    const succeeded: string[] = []
+    const failed: string[] = []
 
     transaction.oncomplete = function () {
-      resolve(count)
+      resolve({ succeeded, failed })
     }
 
     transaction.onerror = function (err) {
@@ -682,17 +702,18 @@ export async function updateFolder(
       const request = objectStore.get(id)
       request.onsuccess = function () {
         const record = request.result
-        if (record) {
+        if (record && record.owner_id === user_id) {
           record.folder = folder
           objectStore.put(record)
-          count += 1
+          succeeded.push(id)
         } else {
-          console.log(`Record with id ${id} not found`)
+          failed.push(id)
         }
       }
 
       request.onerror = function (err) {
         console.error(`Error getting record with id ${id}:`, err)
+        failed.push(id)
       }
     })
   })

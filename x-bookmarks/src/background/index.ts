@@ -327,7 +327,7 @@ chrome.storage.onChanged.addListener(async (changes, areaName) => {
 
   // Cancel any active sync for the previous account
   if (oldUserId) {
-    await cancelCurrentSync()
+    await cancelCurrentSync(oldUserId)
   }
 
   // If new user ID is empty (logged out), don't start a new sync

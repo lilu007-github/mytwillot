@@ -46,8 +46,7 @@ export async function createFolder(
     scope,
     sort_order: sortOrder,
     created_at: Math.floor(Date.now() / 1000),
-    parent_id:
-      parentId && existingNames.includes(parentId) ? parentId : null,
+    parent_id: parentId && existingNames.includes(parentId) ? parentId : null,
   }
 
   const db = await openDb()
@@ -253,7 +252,9 @@ export async function deleteFolder(
 
   const grandparent = existing.parent_id ?? null
 
-  // Delete the folder record and re-parent its children to the grandparent.
+  // Delete the folder record, re-parent its children to the grandparent and
+  // close the sort_order gap so the scope stays 0..n-1 (createFolder appends
+  // at `length`, which would otherwise collide with an existing sort_order).
   const db2 = await openDb()
   const { objectStore: folderStore, transaction: folderTx } = getObjectStore(
     db2,
@@ -267,13 +268,19 @@ export async function deleteFolder(
       const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
       if (cursor) {
         const child = cursor.value as Folder
-        if (
-          child.owner_id === ownerId &&
-          child.scope === scope &&
-          child.parent_id === name
-        ) {
-          child.parent_id = grandparent
-          cursor.update(child)
+        if (child.owner_id === ownerId && child.scope === scope) {
+          let changed = false
+          if (child.parent_id === name) {
+            child.parent_id = grandparent
+            changed = true
+          }
+          if (child.sort_order > existing.sort_order) {
+            child.sort_order -= 1
+            changed = true
+          }
+          if (changed) {
+            cursor.update(child)
+          }
         }
         cursor.continue()
       }
@@ -342,9 +349,7 @@ export async function reorderFolders(
   })
 }
 
-export async function getFoldersByScope(
-  scope: EntityScope,
-): Promise<Folder[]> {
+export async function getFoldersByScope(scope: EntityScope): Promise<Folder[]> {
   const ownerId = await getCurrentUserId()
   const db = await openDb()
   const { objectStore } = getObjectStore(db, FOLDERS_TABLE_NAME)
@@ -400,7 +405,10 @@ export async function getFolderCounts(
   const { objectStore } = getObjectStore(db, entityStoreName)
 
   return new Promise((resolve, reject) => {
-    const counts: Record<string, number> = {}
+    // Null prototype: folder names like "constructor" or "__proto__" must not
+    // hit Object.prototype. It also makes the Solid store replace (not merge)
+    // the counts, so a previous scope's keys don't linger.
+    const counts: Record<string, number> = Object.create(null)
     const request = objectStore.index('folder').openCursor()
 
     request.onsuccess = (event) => {
@@ -417,5 +425,40 @@ export async function getFolderCounts(
     }
 
     request.onerror = () => reject(new Error('Failed to count folder entities'))
+  })
+}
+
+/**
+ * Count the active account's entities in a scope that have no folder
+ * assigned (the "Unsorted" bucket). Records without a folder are absent from
+ * the `folder` index, so this walks the owner_id index instead.
+ */
+export async function countUnsorted(scope: EntityScope): Promise<number> {
+  const ownerId = await getCurrentUserId()
+  const entityStoreName =
+    scope === 'bookmark' ? TWEETS_TABLE_NAME_V2 : USERS_TABLE_NAME
+  const db = await openDb()
+  const { objectStore } = getObjectStore(db, entityStoreName)
+
+  return new Promise((resolve, reject) => {
+    let count = 0
+    const request = objectStore
+      .index('owner_id')
+      .openCursor(IDBKeyRange.only(ownerId))
+
+    request.onsuccess = (event) => {
+      const cursor = (event.target as IDBRequest<IDBCursorWithValue>).result
+      if (cursor) {
+        if (!cursor.value.folder) {
+          count++
+        }
+        cursor.continue()
+      } else {
+        resolve(count)
+      }
+    }
+
+    request.onerror = () =>
+      reject(new Error('Failed to count unsorted entities'))
   })
 }

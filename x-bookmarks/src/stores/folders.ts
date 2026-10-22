@@ -19,6 +19,7 @@ import {
   setFolderParent as dbSetFolderParent,
   getFoldersByScope,
   getFolderCounts,
+  countUnsorted,
   folderExists,
 } from 'utils/db/folders'
 import { updateFolder, upsertRecords, getPostId } from 'utils/db/tweets'
@@ -36,6 +37,8 @@ interface FolderStoreState {
   activeScope: EntityScope
   activeFolder: string | null
   folderCounts: Record<string, number>
+  /** Entities in the active scope with no folder assigned. */
+  unsortedCount: number
 }
 
 const [state, setState] = createStore<FolderStoreState>({
@@ -43,6 +46,7 @@ const [state, setState] = createStore<FolderStoreState>({
   activeScope: 'bookmark',
   activeFolder: null,
   folderCounts: {},
+  unsortedCount: 0,
 })
 
 const [error, setError] = createSignal<string | null>(null)
@@ -58,15 +62,23 @@ function surfaceError(message: string) {
 // Initialization
 // ---------------------------------------------------------------------------
 
+async function loadCounts(scope: EntityScope) {
+  const [counts, unsorted] = await Promise.all([
+    getFolderCounts(scope),
+    countUnsorted(scope),
+  ])
+  setState('folderCounts', counts)
+  setState('unsortedCount', unsorted)
+}
+
 export async function initFolders(scope: EntityScope) {
   try {
     setState('activeScope', scope)
-    const [folders, counts] = await Promise.all([
+    const [folders] = await Promise.all([
       getFoldersByScope(scope),
-      getFolderCounts(scope),
+      loadCounts(scope),
     ])
     setState('folders', folders)
-    setState('folderCounts', counts)
   } catch (err) {
     console.error('initFolders error:', err)
     surfaceError('Failed to load folders')
@@ -81,10 +93,9 @@ export function setActiveScope(scope: EntityScope) {
   setState('activeScope', scope)
   setState('activeFolder', null)
   // Reload folders and counts for the new scope
-  Promise.all([getFoldersByScope(scope), getFolderCounts(scope)])
-    .then(([folders, counts]) => {
+  Promise.all([getFoldersByScope(scope), loadCounts(scope)])
+    .then(([folders]) => {
       setState('folders', folders)
-      setState('folderCounts', counts)
     })
     .catch((err) => {
       console.error('setActiveScope error:', err)
@@ -99,8 +110,7 @@ export function setActiveFolder(name: string | null) {
 /** Refresh folder counts for the current scope */
 export async function refreshFolderCounts() {
   try {
-    const counts = await getFolderCounts(state.activeScope)
-    setState('folderCounts', counts)
+    await loadCounts(state.activeScope)
   } catch {
     // Non-critical, silently fail
   }
@@ -125,10 +135,7 @@ export async function createFolder(
 }
 
 /** Re-parent a folder (null = move to top level). */
-export async function setFolderParent(
-  name: string,
-  parentName: string | null,
-) {
+export async function setFolderParent(name: string, parentName: string | null) {
   try {
     await dbSetFolderParent(name, state.activeScope, parentName)
     const folders = await getFoldersByScope(state.activeScope)
@@ -144,12 +151,11 @@ export async function renameFolder(oldName: string, newName: string) {
   try {
     await dbRenameFolder(oldName, newName, state.activeScope)
     // Reload folders to get updated state
-    const [folders, counts] = await Promise.all([
+    const [folders] = await Promise.all([
       getFoldersByScope(state.activeScope),
-      getFolderCounts(state.activeScope),
+      loadCounts(state.activeScope),
     ])
     setState('folders', folders)
-    setState('folderCounts', counts)
     // If the active folder was the renamed one, update it
     if (state.activeFolder === oldName) {
       setState('activeFolder', newName.trim())
@@ -215,28 +221,17 @@ export async function moveEntitiesToFolder(
       return { succeeded: [], failed: entityIds }
     }
 
-    if (state.activeScope === 'bookmark') {
-      const count = await updateFolder(entityIds, folderName)
-      // updateFolder returns count of succeeded updates
-      const succeeded = entityIds.slice(0, count)
-      const failed = entityIds.slice(count)
-      if (failed.length > 0) {
-        surfaceError(
-          `Moved ${succeeded.length} items. ${failed.length} items failed to update.`,
-        )
-      }
-      await refreshFolderCounts()
-      return { succeeded, failed }
-    } else {
-      const result = await updateUserFolder(entityIds, folderName)
-      if (result.failed.length > 0) {
-        surfaceError(
-          `Moved ${result.succeeded.length} items. ${result.failed.length} items failed to update.`,
-        )
-      }
-      await refreshFolderCounts()
-      return result
+    const result =
+      state.activeScope === 'bookmark'
+        ? await updateFolder(entityIds, folderName)
+        : await updateUserFolder(entityIds, folderName)
+    if (result.failed.length > 0) {
+      surfaceError(
+        `Moved ${result.succeeded.length} items. ${result.failed.length} items failed to update.`,
+      )
     }
+    await refreshFolderCounts()
+    return result
   } catch (err: any) {
     console.error('moveEntitiesToFolder error:', err)
     surfaceError(err.message || 'Failed to move entities to folder')
@@ -248,9 +243,7 @@ export async function moveEntitiesToFolder(
 // X/Twitter folder sync (preserves legacy sync behavior)
 // ---------------------------------------------------------------------------
 
-export const syncXFolders = async (
-  folders: { name: string; id: string }[],
-) => {
+export const syncXFolders = async (folders: { name: string; id: string }[]) => {
   if (!folders.length) {
     console.log('no shared folders')
     return
@@ -275,10 +268,7 @@ export const syncXFolders = async (
         )[0] as TimelineEntry<TimelineTweet, TimelineTimelineCursor>
         const tweetsEntry = entry.entries.filter(
           (i) => i.content.entryType === 'TimelineTimelineItem',
-        ) as TimelineEntry<
-          TimelineTweet,
-          TimelineTimelineItem<TimelineTweet>
-        >[]
+        ) as TimelineEntry<TimelineTweet, TimelineTimelineItem<TimelineTweet>>[]
         if (tweetsEntry.length === 0) {
           break
         }
