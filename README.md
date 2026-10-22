@@ -2,6 +2,8 @@
 
 > Effortlessly search, organize, and export your X/Twitter bookmarks with AI-powered categorization - no Premium account required.
 
+**让 AI agent 使用你的收藏数据**（CLI / MCP，接入 Claude Code、Claude Desktop）：见 [docs/agent-access.md](docs/agent-access.md)。
+
 ## Changelog
 
 ## Nov 30, 2024 Update

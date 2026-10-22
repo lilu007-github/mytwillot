@@ -9,6 +9,8 @@ browser can read. So the extension **mirrors** it as plain files into a folder
 you choose, and this CLI reads that folder. Read-only; nothing leaves your
 machine.
 
+中文使用指南：[docs/agent-access.md](../../docs/agent-access.md)
+
 ## Setup
 
 1. In the extension: **Export → Agent access (CLI / MCP) → Choose mirror
