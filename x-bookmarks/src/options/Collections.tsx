@@ -1,6 +1,8 @@
 import { createMemo, createSignal, For, onMount, Show } from 'solid-js'
 import { useNavigate } from '@solidjs/router'
 
+import { UNSORTED_FOLDER } from 'utils/types'
+
 import dataStore from './store'
 import {
   folderState,
@@ -139,7 +141,7 @@ export default function Collections() {
         {/* Unsorted */}
         <div
           class="cursor-pointer rounded-xl border border-gray-200 p-4 transition hover:border-blue-400 hover:shadow-sm dark:border-gray-700"
-          onClick={() => openFolder('Unsorted')}
+          onClick={() => openFolder(UNSORTED_FOLDER)}
         >
           <div class="flex items-center">
             <IconFolder class="h-5 w-5 opacity-60" />

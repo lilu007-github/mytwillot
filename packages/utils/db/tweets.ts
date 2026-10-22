@@ -1,4 +1,4 @@
-import { Tweet, QueryOptions, CountInfo } from '../types'
+import { Tweet, QueryOptions, CountInfo, UNSORTED_FOLDER } from '../types'
 import { formatDate } from '../date'
 import { parseTwitterQuery } from '../query-parser'
 import { getCurrentUserId } from '../storage'
@@ -180,7 +180,7 @@ function meetsCriteria(
 
   let folderFilter = false
   // 指定 folder 为 null 表示查询没有 unsorted 的记录
-  if (folder === 'Unsorted') {
+  if (folder === UNSORTED_FOLDER) {
     folderFilter = !tweet.folder
   } else {
     // Exact match: folder names are case-sensitive ("Work" and "work" are

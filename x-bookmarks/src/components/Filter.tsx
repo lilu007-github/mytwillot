@@ -1,4 +1,5 @@
 import { createMemo, Show } from 'solid-js'
+import { UNSORTED_FOLDER } from 'utils/types'
 
 import dataStore, { isFilterVisible } from '../options/store'
 import { IconBookmark, IconFolders, IconTrash } from './Icons'
@@ -34,7 +35,7 @@ export default function Filter() {
               class={clsName}
             >
               <IconFolders cls="h-4 w-4" />
-              {store.folder === 'Unsorted' ? 'Unsorted' : store.folder}
+              {store.folder === UNSORTED_FOLDER ? 'Unsorted' : store.folder}
             </button>
           </Show>
           <Show when={store.keyword}>

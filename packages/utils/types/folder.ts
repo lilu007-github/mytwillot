@@ -1,5 +1,12 @@
 export type EntityScope = 'bookmark' | 'user'
 
+/**
+ * Filter value for "entities with no folder". Folder names are user text, so
+ * a readable sentinel like 'Unsorted' collides with a real folder of that
+ * name; a NUL-prefixed value can't be typed or synced from X.
+ */
+export const UNSORTED_FOLDER = '\u0000unsorted'
+
 export interface Folder {
   /** Composite key: `${owner_id}_${scope}_${name}` */
   id: string

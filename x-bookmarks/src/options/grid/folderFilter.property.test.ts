@@ -5,23 +5,24 @@ import { NUM_RUNS, makePost, putRaw, resetEnv } from 'utils/test-utils'
 import { findRecords } from 'utils/db/tweets'
 import { TWEETS_TABLE_NAME_V2 } from 'utils/db/index'
 import type { StoredUser } from 'utils/db/users'
+import { UNSORTED_FOLDER } from 'utils/types'
 import { filterByFolder } from './useGridData'
 
 const OWNER = '111'
 
 // Case variants on purpose: folder names are case-sensitive identities.
-// ('Unsorted' is the filter sentinel and is excluded as a folder name.)
-const FOLDER_NAMES = ['Work', 'work', 'AI', 'news']
+// A real folder named "Unsorted" must not collide with the unsorted filter.
+const FOLDER_NAMES = ['Work', 'work', 'AI', 'Unsorted']
 const arbFolderField = fc.constantFrom<string | undefined | null>(
   undefined,
   null,
   '',
   ...FOLDER_NAMES,
 )
-const arbSelection = fc.constantFrom('Unsorted', ...FOLDER_NAMES)
+const arbSelection = fc.constantFrom(UNSORTED_FOLDER, ...FOLDER_NAMES)
 
 function matches(folder: string | undefined | null, selection: string) {
-  return selection === 'Unsorted' ? !folder : folder === selection
+  return selection === UNSORTED_FOLDER ? !folder : folder === selection
 }
 
 describe('Feature: universal-folders, Property 15: Folder filter correctness', () => {

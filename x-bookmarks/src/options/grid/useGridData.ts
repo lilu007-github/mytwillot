@@ -1,6 +1,7 @@
 import { createEffect, on } from 'solid-js'
 
 import { findUsers, type StoredUser } from 'utils/db/users'
+import { UNSORTED_FOLDER } from 'utils/types'
 import {
   gridState,
   setUsers,
@@ -15,7 +16,7 @@ import { folderState } from '~/stores/folders'
 /**
  * Apply folder filtering to a list of users based on the active folder selection.
  * - null: no filter (show all)
- * - 'Unsorted': show users with no folder assigned
+ * - UNSORTED_FOLDER: show users with no folder assigned
  * - folder name: show users assigned to that folder
  */
 export function filterByFolder(
@@ -23,7 +24,7 @@ export function filterByFolder(
   activeFolder: string | null,
 ): StoredUser[] {
   if (activeFolder === null) return users
-  if (activeFolder === 'Unsorted') {
+  if (activeFolder === UNSORTED_FOLDER) {
     return users.filter((u) => !u.folder)
   }
   return users.filter((u) => u.folder === activeFolder)

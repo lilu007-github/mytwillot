@@ -241,7 +241,7 @@ export const Layout = (props) => {
     const scope = activeScope()
     if (scope === 'bookmark') {
       // Map activeFolder to the store.folder value:
-      // null → '' (show all), 'Unsorted' → 'Unsorted', folder name → folder name
+      // null → '' (show all), UNSORTED_FOLDER and folder names pass through
       setStore('folder', active ?? '')
       // Reset tweets to clear cursor-based pagination (re-query from start)
       setStore('tweets', [])

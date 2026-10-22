@@ -1,6 +1,6 @@
 import { createMemo, createSignal, For, Show } from 'solid-js'
 
-import { type EntityScope } from 'utils/types'
+import { type EntityScope, UNSORTED_FOLDER } from 'utils/types'
 import {
   folderState,
   folderError,
@@ -213,13 +213,15 @@ export default function FolderPanel(props: FolderPanelProps) {
           {/* Unsorted entry */}
           <div
             class={`flex w-full cursor-pointer items-center rounded-lg p-1 pl-11 transition duration-75 ${
-              folderState.activeFolder === 'Unsorted'
+              folderState.activeFolder === UNSORTED_FOLDER
                 ? 'bg-blue-50 text-blue-500 dark:bg-blue-900/20'
                 : ''
             }`}
             onClick={() =>
               setActiveFolder(
-                folderState.activeFolder === 'Unsorted' ? null : 'Unsorted',
+                folderState.activeFolder === UNSORTED_FOLDER
+                  ? null
+                  : UNSORTED_FOLDER,
               )
             }
           >
