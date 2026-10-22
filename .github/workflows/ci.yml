@@ -43,6 +43,10 @@ jobs:
         run: pnpm test -- --run
         working-directory: x-bookmarks-automation
 
+      - name: Test CLI
+        run: pnpm test -- --run
+        working-directory: packages/cli
+
       - name: Build x-bookmarks
         run: pnpm build
         working-directory: x-bookmarks
@@ -54,3 +58,7 @@ jobs:
       - name: Build x-bookmarks-automation
         run: pnpm build
         working-directory: x-bookmarks-automation
+
+      - name: Build CLI
+        run: pnpm build
+        working-directory: packages/cli

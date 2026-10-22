@@ -19,6 +19,7 @@ import dataStore, { mutateStore } from './store'
 import Spinner from '../components/Spinner'
 import VaultSync from '../components/VaultSync'
 import ObsidianRest from '../components/ObsidianRest'
+import AgentMirror from '../components/AgentMirror'
 
 const [store, setStore] = dataStore
 
@@ -244,6 +245,8 @@ const ExportPage = () => {
       <VaultSync />
 
       <ObsidianRest />
+
+      <AgentMirror />
 
       <div class="mb-4 rounded-md border border-gray-200 p-4 dark:border-gray-700">
         <div class="w-full border-b pb-4 pt-2 text-lg font-bold text-gray-900 outline-none dark:border-gray-600  dark:border-b-[#121212]  dark:bg-[#121212] dark:text-white">

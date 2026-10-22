@@ -61,6 +61,7 @@ import {
 } from 'utils/account-manager'
 import { getSyncState, type SyncState } from 'utils/sync-engine'
 import { refreshData as refreshGridData } from './grid/gridStore'
+import { startAutoMirror } from '../libs/agent-mirror'
 
 /**
  * Determine the entity scope from the current route pathname.
@@ -306,6 +307,9 @@ export const Layout = (props) => {
     }
   })
 
+  let stopAutoMirror: (() => void) | undefined
+  onCleanup(() => stopAutoMirror?.())
+
   onMount(async () => {
     const handler = debounce((changes) => {
       if (StorageKeys.Tasks in changes) {
@@ -324,6 +328,8 @@ export const Layout = (props) => {
      * 优先获取全部书签和文件夹同步，threads 优先级可以降低
      */
     await Promise.all([initSync(), initFolders('bookmark'), initTags()])
+    // Refresh the agent mirror (CLI / MCP) once local data is loaded.
+    stopAutoMirror = startAutoMirror()
     await syncThreads()
   })
 

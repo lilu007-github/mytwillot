@@ -35,7 +35,7 @@ function openVaultDb(): Promise<IDBDatabase> {
   })
 }
 
-async function metaGet<T>(key: string): Promise<T | undefined> {
+export async function metaGet<T>(key: string): Promise<T | undefined> {
   const db = await openVaultDb()
   return new Promise((resolve, reject) => {
     const req = db
@@ -47,7 +47,7 @@ async function metaGet<T>(key: string): Promise<T | undefined> {
   })
 }
 
-async function metaSet(key: string, value: unknown): Promise<void> {
+export async function metaSet(key: string, value: unknown): Promise<void> {
   const db = await openVaultDb()
   return new Promise((resolve, reject) => {
     const tx = db.transaction(META_STORE, 'readwrite')
@@ -100,7 +100,8 @@ export async function ensurePermission(
   return perm as 'granted' | 'prompt' | 'denied'
 }
 
-async function writeNote(
+/** Write a UTF-8 file at a "/"-separated path, creating folders as needed. */
+export async function writeTextFile(
   root: any,
   path: string,
   content: string,
@@ -124,6 +125,28 @@ async function writeNote(
   const writable = await fileHandle.createWritable()
   await writable.write(content)
   await writable.close()
+}
+
+/** Read a UTF-8 file at a "/"-separated path; null when it doesn't exist. */
+export async function readTextFile(
+  root: any,
+  path: string,
+): Promise<string | null> {
+  try {
+    const parts = path.split('/')
+    const fileName = parts.pop()!
+    let dir = root
+    for (const p of parts) {
+      dir = await dir.getDirectoryHandle(p)
+    }
+    const file = await (await dir.getFileHandle(fileName)).getFile()
+    return await file.text()
+  } catch (err: any) {
+    if (err?.name === 'NotFoundError') {
+      return null
+    }
+    throw err
+  }
 }
 
 export interface VaultSyncProgress {
@@ -164,7 +187,7 @@ export async function syncToVault(
     if (manifest[path] === hash) {
       skipped++
     } else {
-      await writeNote(handle, path, note.content, dirCache)
+      await writeTextFile(handle, path, note.content, dirCache)
       manifest[path] = hash
       written++
       // Persist periodically so a mid-run failure doesn't lose all progress.

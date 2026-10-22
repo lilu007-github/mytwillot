@@ -10,6 +10,7 @@ A pnpm monorepo of Manifest V3 Chrome extensions for X/Twitter power users. Thre
 - **exporter**: one-click data export (followers, bookmarks).
 - **x-bookmarks-automation**: engagement/content automation.
 - **multi-publish**: multi-store publishing tooling (not a workspace member).
+- **packages/cli** (`twillot-cli`): Node CLI + MCP server (read-only) over the *agent mirror* — plain files (`index.json`, `accounts/<owner_id>/tweets.jsonl`, …) the x-bookmarks options page writes to a user-chosen folder (Export → "Agent access"). The format lives in `packages/utils/agent-mirror.ts` (`AGENT_MIRROR_SCHEMA`); change it there and bump the schema on breaking changes. Build with `pnpm --filter twillot-cli build` → `packages/cli/dist/twillot.mjs`.
 
 All data lives locally in the browser (IndexedDB + `chrome.storage.local`). There is **no Twillot backend** — AI classification calls the user's own LLM provider directly with the user's own API key. There are no license tiers or export limits; don't add calls to `*.twillot.com` or other third-party relays (automation webhooks post straight to the user's endpoint from the background worker).
 
@@ -40,8 +41,8 @@ Shared-package tests: `cd packages/utils && pnpm test -- --run`. The root `vites
 ```bash
 pnpm format:check   # root — prettier over all workspace source (pnpm format to fix)
 pnpm typecheck      # root — tsc --noEmit for every workspace; must be 0 errors
-# tests: packages/utils, x-bookmarks, exporter, x-bookmarks-automation (pnpm test -- --run in each)
-# builds: x-bookmarks, exporter, x-bookmarks-automation (pnpm build in each)
+# tests: packages/utils, x-bookmarks, exporter, x-bookmarks-automation, packages/cli (pnpm test -- --run in each)
+# builds: x-bookmarks, exporter, x-bookmarks-automation, packages/cli (pnpm build in each)
 ```
 
 `strict` is off, but `tsc` is a real gate now (it was cleaned to 0 errors) — don't reintroduce type errors. Vitest runs with `isolate: true`; keep it — with shared state, results depended on CPU count. When asked to commit, commit **and push** in the same step.
@@ -78,6 +79,6 @@ Imported as `utils` (`"utils": "workspace:*"`), e.g. `import { StorageKeys } fro
 
 ## Specs & workflow (`.kiro/`)
 
-`.kiro/steering/` holds product/tech/structure/workflow guidance; `.kiro/specs/<feature>/` holds `requirements.md` + `design.md` + `tasks.md` per feature (multi-account-support, universal-folders, user-grid-view). For medium/large features, update the relevant spec before/alongside implementation (see `.kiro/steering/workflow.md`); small changes (UI tweaks, bug fixes, copy) go straight to code. Conventional commits (`feat:`/`fix:`/`refactor:`/`docs:`).
+`.kiro/steering/` holds product/tech/structure/workflow guidance; `.kiro/specs/<feature>/` holds `requirements.md` + `design.md` + `tasks.md` per feature (multi-account-support, universal-folders, user-grid-view, agent-access). For medium/large features, update the relevant spec before/alongside implementation (see `.kiro/steering/workflow.md`); small changes (UI tweaks, bug fixes, copy) go straight to code. Conventional commits (`feat:`/`fix:`/`refactor:`/`docs:`).
 
 `docs/req-res/` contains real captured Twitter GraphQL request/response samples — reference these when writing or debugging parsers.

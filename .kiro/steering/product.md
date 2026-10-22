@@ -17,6 +17,7 @@ Twillot is a suite of Chrome extensions for X/Twitter power users. The core valu
 - Media file downloads from bookmarks
 - Folder management without Twitter Premium
 - Omnibox quick search (prefix: `tt`)
+- Agent access: local data mirror + `twillot` CLI and MCP server (search, stats, topic trends) for AI agents and scripts
 
 ## Pricing
 

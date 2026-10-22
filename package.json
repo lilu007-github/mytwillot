@@ -29,9 +29,9 @@
     "webextension-polyfill": "^0.12.0"
   },
   "scripts": {
-    "format": "prettier --write 'packages/utils/**/*.{ts,tsx}' 'x-bookmarks/src/**/*.{ts,tsx,css}' 'x-bookmarks/public/*.js' 'x-bookmarks/__mocks__/*.ts' 'exporter/src/**/*.{ts,tsx,css}' 'x-bookmarks-automation/src/**/*.{ts,tsx,css}'",
-    "format:check": "prettier --check 'packages/utils/**/*.{ts,tsx}' 'x-bookmarks/src/**/*.{ts,tsx,css}' 'x-bookmarks/public/*.js' 'x-bookmarks/__mocks__/*.ts' 'exporter/src/**/*.{ts,tsx,css}' 'x-bookmarks-automation/src/**/*.{ts,tsx,css}'",
-    "typecheck": "tsc --noEmit -p packages/utils && tsc --noEmit -p x-bookmarks && tsc --noEmit -p exporter && tsc --noEmit -p x-bookmarks-automation"
+    "format": "prettier --write 'packages/utils/**/*.{ts,tsx}' 'packages/cli/src/**/*.ts' 'packages/cli/*.{mjs,ts}' 'x-bookmarks/src/**/*.{ts,tsx,css}' 'x-bookmarks/public/*.js' 'x-bookmarks/__mocks__/*.ts' 'exporter/src/**/*.{ts,tsx,css}' 'x-bookmarks-automation/src/**/*.{ts,tsx,css}'",
+    "format:check": "prettier --check 'packages/utils/**/*.{ts,tsx}' 'packages/cli/src/**/*.ts' 'packages/cli/*.{mjs,ts}' 'x-bookmarks/src/**/*.{ts,tsx,css}' 'x-bookmarks/public/*.js' 'x-bookmarks/__mocks__/*.ts' 'exporter/src/**/*.{ts,tsx,css}' 'x-bookmarks-automation/src/**/*.{ts,tsx,css}'",
+    "typecheck": "tsc --noEmit -p packages/utils && tsc --noEmit -p x-bookmarks && tsc --noEmit -p exporter && tsc --noEmit -p x-bookmarks-automation && tsc --noEmit -p packages/cli"
   },
   "keywords": [
     "x",

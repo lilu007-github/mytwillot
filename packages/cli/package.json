@@ -1,0 +1,24 @@
+{
+  "name": "twillot-cli",
+  "version": "0.1.0",
+  "description": "Query your locally mirrored Twillot bookmarks from the terminal or any MCP client",
+  "license": "MPL-2.0",
+  "type": "module",
+  "bin": {
+    "twillot": "dist/twillot.mjs"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "esbuild": "0.28.2",
+    "utils": "workspace:*",
+    "vitest": "^1.6.0"
+  }
+}
