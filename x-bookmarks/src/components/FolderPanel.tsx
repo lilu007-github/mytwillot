@@ -14,6 +14,7 @@ import {
   buildFolderTree,
   type FolderTreeNode as TreeNode,
 } from '../libs/folder-tree'
+import { countFor } from '../libs/counts'
 import { IconFolders, IconTrash } from './Icons'
 
 interface FolderPanelProps {
@@ -175,7 +176,7 @@ export default function FolderPanel(props: FolderPanelProps) {
               </span>
             </div>
             <span class="mr-1 flex-1 items-center text-right text-xs font-medium opacity-60 group-hover:hidden">
-              {folderState.folderCounts[folder.name] ?? 0}
+              {countFor(folderState.folderCounts, folder.name)}
             </span>
           </div>
         </Show>

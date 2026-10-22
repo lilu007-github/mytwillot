@@ -1,4 +1,5 @@
 import { type Folder } from 'utils/types'
+import { countFor } from './counts'
 
 /**
  * Shared folder-tree helpers for FolderPanel (sidebar) and Collections (card
@@ -40,7 +41,7 @@ export function rolledCount(
   folders: Folder[],
   counts: Record<string, number>,
 ): number {
-  let total = counts[name] ?? 0
+  let total = countFor(counts, name)
   for (const f of folders) {
     if (f.parent_id === name) total += rolledCount(f.name, folders, counts)
   }

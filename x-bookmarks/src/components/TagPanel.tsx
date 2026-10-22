@@ -3,6 +3,7 @@ import { createSignal, For, Show } from 'solid-js'
 import { TAG_COLORS } from 'utils/types'
 import { tagState, createTag, deleteTag, setTagColor } from '../stores/tags'
 import dataStore from '../options/store'
+import { countFor } from '../libs/counts'
 import { IconTag, IconTrash } from './Icons'
 
 interface TagPanelProps {
@@ -87,7 +88,7 @@ export default function TagPanel(props: TagPanelProps) {
                     {tag.name}
                   </span>
                   <span class="mr-1 text-xs opacity-60 group-hover:hidden">
-                    {tagState.counts[tag.name] ?? 0}
+                    {countFor(tagState.counts, tag.name)}
                   </span>
                   <span
                     class="hidden cursor-pointer group-hover:inline"

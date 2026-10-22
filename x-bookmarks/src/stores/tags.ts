@@ -1,4 +1,4 @@
-import { createStore, produce } from 'solid-js/store'
+import { createStore, produce, reconcile } from 'solid-js/store'
 
 import { type Tag } from 'utils/types'
 import {
@@ -27,7 +27,7 @@ export async function initTags() {
   try {
     const [tags, counts] = await Promise.all([getTags(), getTagCounts()])
     setState('tags', tags)
-    setState('counts', counts)
+    setState('counts', reconcile(counts))
   } catch (err) {
     console.error('initTags error:', err)
   }
@@ -69,7 +69,7 @@ export async function setTagColor(name: string, color: string) {
 
 export async function refreshCounts() {
   try {
-    setState('counts', await getTagCounts())
+    setState('counts', reconcile(await getTagCounts()))
   } catch {
     // non-critical
   }

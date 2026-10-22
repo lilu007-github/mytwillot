@@ -407,8 +407,7 @@ export async function getFolderCounts(
 
   return new Promise((resolve, reject) => {
     // Null prototype: folder names like "constructor" or "__proto__" must not
-    // hit Object.prototype. It also makes the Solid store replace (not merge)
-    // the counts, so a previous scope's keys don't linger.
+    // hit Object.prototype while counting.
     const counts: Record<string, number> = Object.create(null)
     const request = objectStore.index('folder').openCursor()
 

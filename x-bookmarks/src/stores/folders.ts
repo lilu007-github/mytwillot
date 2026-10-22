@@ -1,5 +1,5 @@
 import { createSignal } from 'solid-js'
-import { createStore, unwrap } from 'solid-js/store'
+import { createStore, reconcile, unwrap } from 'solid-js/store'
 
 import {
   type EntityScope,
@@ -67,7 +67,8 @@ async function loadCounts(scope: EntityScope) {
     getFolderCounts(scope),
     countUnsorted(scope),
   ])
-  setState('folderCounts', counts)
+  // reconcile: drop the previous scope's keys instead of merging into them
+  setState('folderCounts', reconcile(counts))
   setState('unsortedCount', unsorted)
 }
 

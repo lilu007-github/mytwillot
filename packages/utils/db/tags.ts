@@ -237,7 +237,7 @@ export async function getTagCounts(): Promise<Record<string, number>> {
   const { objectStore } = getObjectStore(db, TWEETS_TABLE_NAME_V2)
   return new Promise((resolve, reject) => {
     // Null prototype: tag names like "constructor" must not hit
-    // Object.prototype; also makes the Solid store replace, not merge.
+    // Object.prototype while counting.
     const counts: Record<string, number> = Object.create(null)
     // Scan only this account's records via the owner_id index; each record is
     // visited once and its tags counted in JS (the multiEntry tags index would
