@@ -10,7 +10,7 @@ A pnpm monorepo of Manifest V3 Chrome extensions for X/Twitter power users. Thre
 - **exporter**: one-click data export (followers, bookmarks).
 - **x-bookmarks-automation**: engagement/content automation.
 - **multi-publish**: multi-store publishing tooling (not a workspace member).
-- **packages/cli** (`twillot-cli`): Node CLI + MCP server (read-only) over the *agent mirror* — plain files (`index.json`, `accounts/<owner_id>/tweets.jsonl`, …) the x-bookmarks options page writes to a user-chosen folder (Export → "Agent access"). The format lives in `packages/utils/agent-mirror.ts` (`AGENT_MIRROR_SCHEMA`); change it there and bump the schema on breaking changes. Build with `pnpm --filter twillot-cli build` → `packages/cli/dist/twillot.mjs`.
+- **packages/cli** (`twillot-cli`): Node CLI + read-only MCP server that lets AI agents query the user's data via a local file mirror. See "Agent mirror" below; user guide in `docs/agent-access.md`.
 
 All data lives locally in the browser (IndexedDB + `chrome.storage.local`). There is **no Twillot backend** — AI classification calls the user's own LLM provider directly with the user's own API key. There are no license tiers or export limits; don't add calls to `*.twillot.com` or other third-party relays (automation webhooks post straight to the user's endpoint from the background worker).
 
@@ -72,6 +72,24 @@ Trust boundary: page world → content script (verify source+origin) → backgro
 ## Sync state
 
 `packages/utils/sync-engine.ts` owns sync **status** (idle/syncing/error, progress, cursor) in `chrome.storage.local`, per account. The actual fetch loop lives in `x-bookmarks/src/options/sync-bookmarks.ts` and reports progress back via `updateSyncProgress`/`finishSync`. `src/options/handlers.ts` is a barrel re-exporting `query.ts` (read/pagination), `sync-bookmarks.ts` (sync/reconcile/threads/delete), and `ai-actions.ts` (AI batch runs).
+
+## Agent mirror (CLI / MCP)
+
+IndexedDB isn't readable outside the browser, so the options page mirrors the active account's data as plain files into a folder the user picks (Export → "Agent access"), and `packages/cli` reads them. Three pieces, one format:
+
+- **Format** — `packages/utils/agent-mirror.ts`: `AgentTweet`/`AgentFolder`/`AgentTag`/`AgentAccountMeta`/`AgentIndex`, `toAgentTweet`, `buildAccountSnapshot`, `mergeAgentIndex`, and `AGENT_README` (written into the mirror for agents). Layout: `index.json`, `README.md`, `accounts/<owner_id>/{tweets.jsonl,folders.json,tags.json,meta.json}`.
+- **Writer** — `x-bookmarks/src/libs/agent-mirror.ts` (+ `components/AgentMirror.tsx`; auto-refresh started from `options/Layout.tsx`). Reuses the File System Access helpers in `libs/vault.ts` with its own handle key.
+- **Reader** — `packages/cli/src`: `data.ts` (locate/load; `~/.config/twillot/config.json`), `query.ts` (query language, filters, dedupe, sort), `trends.ts` (stats, per-period terms via `Intl.Segmenter`, rising terms), `cli.ts`, `mcp.ts`. Bundled by esbuild into `dist/twillot.mjs` with `utils` inlined; only `@modelcontextprotocol/sdk` and `zod` stay external.
+
+Rules:
+
+- **Change the format only in `agent-mirror.ts`.** Adding a field is fine (readers ignore unknown fields). Renaming/removing a field or changing its type/meaning is breaking: bump `AGENT_MIRROR_SCHEMA` (the CLI refuses newer schemas). Either way update `AGENT_README`, `docs/agent-access.md` and `packages/cli/README.md`.
+- To expose a new stored `Tweet` field to agents, map it in `toAgentTweet` and extend `agent-mirror.test.ts`.
+- Write the mirror only from a window (options page), never the service worker: permission prompts need a window. Auto-refresh must only run when `queryPermission` is already `granted`; `requestPermission` only inside a click handler.
+- Unchanged files are skipped by content hash; `meta.json`/`index.json` change every run on purpose (`exported_at` = freshness, surfaced by the `mirror_info` tool).
+- The CLI/MCP is **read-only**. Write-back (applying AI-proposed folders/tags) is deferred (spec: `.kiro/specs/agent-access`, "Later"). New MCP tools must keep `readOnlyHint`; when adding one, update the exact tool list in `mcp.test.ts`, the tool tables in both docs, and the matching CLI command if any.
+- Search across categories dedupes a tweet that is both bookmarked and liked (keeps the bookmark copy), except when a category filter is set. Trend counts are document frequency, not raw occurrences.
+- CLI tests build mirrors with the real writer code (`src/fixture.test-helper.ts` → `buildAccountSnapshot`); keep it that way so writer and reader can't drift. `strict` is on in `packages/cli/tsconfig.json`.
 
 ## Shared package (`packages/utils/`)
 
